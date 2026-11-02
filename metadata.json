@@ -1,0 +1,8 @@
+{
+  "name": "Remix Minimalist Parkour Web",
+  "description": "An immersive 3D parkour game featuring clean, minimalist aesthetics designed for a seamless web browser experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
