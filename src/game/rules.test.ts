@@ -263,6 +263,40 @@ test('All 50 levels have extended racetracks, uphill climbs, downhill drops, and
   });
 });
 
+test('CHARACTER_PRESETS provides both human and cartoon characters with complete metadata', async () => {
+  const { CHARACTER_PRESETS, buildCharacterRig } = await import('./character');
+  const characterIds = Object.keys(CHARACTER_PRESETS) as (keyof typeof CHARACTER_PRESETS)[];
+
+  assert.equal(characterIds.length >= 4, true);
+
+  // Must have human character
+  const hasHuman = characterIds.some((id) => CHARACTER_PRESETS[id].category === 'human');
+  assert.equal(hasHuman, true, 'Must have at least one human character');
+
+  // Must have cartoon character
+  const hasCartoon = characterIds.some((id) => CHARACTER_PRESETS[id].category === 'cartoon');
+  assert.equal(hasCartoon, true, 'Must have at least one cartoon character');
+
+  // Verify all character presets have name, subtitle, colors, and generate valid 3D rigs
+  for (const id of characterIds) {
+    const char = CHARACTER_PRESETS[id];
+    assert.ok(char.name.length > 0);
+    assert.ok(char.subtitle.length > 0);
+    assert.ok(char.description.length > 0);
+    assert.ok(char.colors.primary);
+
+    // Verify 3D procedural rig builds cleanly with Three.js hierarchy
+    const rig = buildCharacterRig(id, true);
+    assert.ok(rig.rootGroup);
+    assert.ok(rig.headGroup);
+    assert.ok(rig.torsoGroup);
+    assert.ok(rig.leftArmGroup);
+    assert.ok(rig.rightArmGroup);
+    assert.ok(rig.leftLegGroup);
+    assert.ok(rig.rightLegGroup);
+  }
+});
+
 
 
 

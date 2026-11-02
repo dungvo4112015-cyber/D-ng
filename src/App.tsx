@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { CameraMode, GameState, PlayerPhysicsState, RunStats, Vector3D } from './game/types';
+import { CameraMode, CharacterId, GameState, PlayerPhysicsState, RunStats, Vector3D } from './game/types';
 import { LEVELS } from './game/levels';
 import { ParkourRenderer } from './game/renderer';
 import {
@@ -27,12 +27,29 @@ export default function App() {
   // High-level game state
   const [gameState, setGameState] = useState<GameState>('title');
   const [currentLevelId, setCurrentLevelId] = useState<number>(1);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<CharacterId>(() => {
+    return (localStorage.getItem('acro_character') as CharacterId) || 'kaito';
+  });
   const cameraMode: CameraMode = 'third_person';
   const [mouseControlMode, setMouseControlMode] = useState<'mouse_follow' | 'pointer_lock'>('pointer_lock');
   const [isPointerLocked, setIsPointerLocked] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [defeatReason, setDefeatReason] = useState<'fall' | 'trap'>('fall');
   const [defeatTrapInfo, setDefeatTrapInfo] = useState<{ type?: string; name?: string; tip?: string } | null>(null);
+
+  const handleSelectCharacter = (id: CharacterId) => {
+    setSelectedCharacterId(id);
+    localStorage.setItem('acro_character', id);
+    if (rendererRef.current) {
+      rendererRef.current.setCharacter(id);
+    }
+  };
+
+  const cycleCharacter = () => {
+    const list: CharacterId[] = ['kaito', 'kibo', 'aoi', 'sparky'];
+    const nextIdx = (list.indexOf(selectedCharacterId) + 1) % list.length;
+    handleSelectCharacter(list[nextIdx]);
+  };
 
   // HUD-bound throttled state (updated at ~10Hz or on discrete events)
   const [hudState, setHudState] = useState({
@@ -131,6 +148,13 @@ export default function App() {
     }
   }, [gameState]);
 
+  // Sync character model changes
+  useEffect(() => {
+    if (rendererRef.current) {
+      rendererRef.current.setCharacter(selectedCharacterId);
+    }
+  }, [selectedCharacterId]);
+
   // Main Three.js mount and loop
   useEffect(() => {
     if (!mountRef.current) return;
@@ -141,6 +165,7 @@ export default function App() {
 
     const parkourRenderer = new ParkourRenderer(mountRef.current);
     rendererRef.current = parkourRenderer;
+    parkourRenderer.setCharacter(selectedCharacterId);
     parkourRenderer.loadLevel(simRef.current.level);
 
     if (autostart) {
@@ -167,9 +192,9 @@ export default function App() {
         updatePhysics(sim, dt);
       }
 
-      // Update camera and 3D player mesh
+      // Update camera and 3D player mesh with dt for kinematics
       parkourRenderer.updateCamera(sim.player, dt);
-      parkourRenderer.updatePlayerMesh(sim.player, now * 0.001);
+      parkourRenderer.updatePlayerMesh(sim.player, now * 0.001, dt);
 
       // Throttle React HUD updates to ~10-15Hz
       if (now - sim.lastHudUpdate > 80) {
@@ -648,6 +673,10 @@ export default function App() {
         performAirDash(simRef.current.player);
       }
 
+      if (e.code === 'KeyC') {
+        cycleCharacter();
+      }
+
       simRef.current.keys.add(e.code);
     };
 
@@ -879,6 +908,8 @@ export default function App() {
           mouseControlMode={mouseControlMode}
           isPointerLocked={isPointerLocked}
           isMuted={isMuted}
+          selectedCharacterId={selectedCharacterId}
+          onSelectCharacter={handleSelectCharacter}
           onToggleCamera={toggleCameraMode}
           onToggleMouseControlMode={toggleMouseControlMode}
           onRequestPointerLock={requestPointerLock}
@@ -898,6 +929,8 @@ export default function App() {
           cameraMode={cameraMode}
           onToggleCamera={toggleCameraMode}
           onOpenTrapsCodex={() => setIsTrapsCodexOpen(true)}
+          selectedCharacterId={selectedCharacterId}
+          onSelectCharacter={handleSelectCharacter}
         />
       )}
 
@@ -908,6 +941,8 @@ export default function App() {
           onRestart={restartLevel}
           onQuitToTitle={quitToTitle}
           onOpenTrapsCodex={() => setIsTrapsCodexOpen(true)}
+          selectedCharacterId={selectedCharacterId}
+          onSelectCharacter={handleSelectCharacter}
         />
       )}
 

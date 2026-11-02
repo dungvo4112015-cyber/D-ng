@@ -4,8 +4,10 @@
  */
 
 import React from 'react';
-import { CameraMode, LevelDefinition, ParkourAction } from '../game/types';
+import { CameraMode, CharacterId, LevelDefinition, ParkourAction } from '../game/types';
 import { formatGameTime } from '../game/rules';
+import { CHARACTER_PRESETS } from '../game/character';
+import { CharacterAvatarIcon } from './Modals';
 
 interface HUDProps {
   currentLevel: LevelDefinition;
@@ -22,6 +24,8 @@ interface HUDProps {
   jumpsRemaining: number;
   maxJumps: number;
   isMuted: boolean;
+  selectedCharacterId: CharacterId;
+  onSelectCharacter: (id: CharacterId) => void;
   onToggleCamera: () => void;
   onToggleMouseControlMode: () => void;
   onRequestPointerLock: () => void;
@@ -45,6 +49,8 @@ export const HUD: React.FC<HUDProps> = ({
   mouseControlMode,
   isPointerLocked,
   isMuted,
+  selectedCharacterId,
+  onSelectCharacter,
   onToggleCamera,
   onToggleMouseControlMode,
   onRequestPointerLock,
@@ -53,6 +59,7 @@ export const HUD: React.FC<HUDProps> = ({
   onRestart,
 }) => {
   const kmh = Math.round(speed * 3.6);
+  const activeChar = CHARACTER_PRESETS[selectedCharacterId] || CHARACTER_PRESETS.kaito;
 
   // Friendly action badge label
   let actionBadge = null;
@@ -68,8 +75,14 @@ export const HUD: React.FC<HUDProps> = ({
     actionBadge = 'BỨT TỐC';
   }
 
+  const handleCycleCharacter = () => {
+    const list: CharacterId[] = ['kaito', 'kibo', 'aoi', 'sparky'];
+    const nextIdx = (list.indexOf(selectedCharacterId) + 1) % list.length;
+    onSelectCharacter(list[nextIdx]);
+  };
+
   return (
-    <div className="fixed inset-0 pointer-events-none select-none text-slate-100 font-sans z-10 flex flex-col justify-between p-6">
+    <div className="fixed inset-0 pointer-events-none select-none text-slate-100 font-sans z-20 flex flex-col justify-between p-6">
       {/* Top row: Left Info & Right Utilities */}
       <div className="flex justify-between items-start w-full gap-2">
         {/* Left: Speedometer & Level Header */}
@@ -102,6 +115,20 @@ export const HUD: React.FC<HUDProps> = ({
 
         {/* Right: Quick action buttons */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Quick Character Switcher Button */}
+          <button
+            type="button"
+            onClick={handleCycleCharacter}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/90 hover:bg-slate-800 border border-orange-500/50 hover:border-orange-400 rounded-md text-xs font-mono text-orange-300 transition-colors shadow cursor-pointer"
+            title="Đổi nhân vật 3D (Con người hoặc Hoạt hình) [Phím C]"
+          >
+            <CharacterAvatarIcon characterId={selectedCharacterId} className="w-4 h-4" />
+            <span className="font-bold text-white uppercase">{activeChar.name}</span>
+            <span className="text-[9px] text-slate-400 hidden md:inline">
+              ({activeChar.category === 'human' ? 'Người' : 'Toon'})
+            </span>
+          </button>
+
           {/* Mouse Control Mode Toggle */}
           <button
             type="button"
@@ -197,9 +224,9 @@ export const HUD: React.FC<HUDProps> = ({
           <button
             type="button"
             onClick={onRequestPointerLock}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/95 border border-cyan-500/60 text-cyan-300 hover:text-white hover:border-cyan-400 text-xs font-mono shadow-2xl transition animate-bounce cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/95 border border-cyan-500/60 text-cyan-300 hover:text-white hover:border-cyan-400 text-xs font-mono shadow-xl transition cursor-pointer"
           >
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            <span className="w-2 h-2 rounded-full bg-cyan-400" />
             <span>NHẤP CHUỘT VÀO ĐÂY ĐỂ KHÓA TÂM VÀO GIỮA NHÂN VẬT</span>
           </button>
         </div>

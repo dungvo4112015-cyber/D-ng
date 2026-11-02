@@ -5,8 +5,9 @@
 
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { BoxCollider, CameraMode, LevelDefinition, PlayerPhysicsState, Vector3D } from './types';
+import { BoxCollider, CameraMode, CharacterId, LevelDefinition, PlayerPhysicsState, Vector3D } from './types';
 import { PHYSICS_CONSTANTS } from './rules';
+import { CharacterRig, animateCharacterRig, buildCharacterRig } from './character';
 
 // Pre-allocated scratch vectors for zero-GC render loop
 const _v1 = new THREE.Vector3();
@@ -27,24 +28,11 @@ export class ParkourRenderer {
   private levelMeshes: Map<string, THREE.Mesh | THREE.Group> = new Map();
   private movingMeshes: { id: string; mesh: THREE.Mesh | THREE.Group; collider: BoxCollider; origin: Vector3D }[] = [];
 
-  // Procedural 3D athletic character model
+  // Procedural 3D athletic humanoid / cartoon character rig
+  public characterId: CharacterId = 'kaito';
+  public characterRig: CharacterRig;
   public playerGroup: THREE.Group;
-  private innerBodyGroup!: THREE.Group;
-  private headMesh!: THREE.Mesh;
-  private visorMesh!: THREE.Mesh;
-  private torsoMesh!: THREE.Mesh;
-  private spineGlowMesh!: THREE.Mesh;
-  private backpackMesh!: THREE.Mesh;
-  private thrusterLMesh!: THREE.Mesh;
-  private thrusterRMesh!: THREE.Mesh;
-  private leftArmGroup!: THREE.Group;
-  private rightArmGroup!: THREE.Group;
-  private leftLegGroup!: THREE.Group;
-  private rightLegGroup!: THREE.Group;
-  private contactShadow!: THREE.Mesh;
-  private arrowMesh!: THREE.Mesh;
   private speedLines!: THREE.LineSegments;
-  private doubleJumpFlipProgress = 0;
 
   // Camera damping
   private currentCamPos = new THREE.Vector3(0, 5, 10);
@@ -107,8 +95,9 @@ export class ParkourRenderer {
     // Setup Lighting
     this.setupLighting();
 
-    // Build procedural 3-12 part runner character
-    this.playerGroup = this.buildProceduralPlayer();
+    // Build procedural humanoid & cartoon character rig
+    this.characterRig = buildCharacterRig(this.characterId, this.isSoftwareGl);
+    this.playerGroup = this.characterRig.rootGroup;
     this.scene.add(this.playerGroup);
 
     // Build speed line streaks
@@ -151,223 +140,16 @@ export class ParkourRenderer {
   }
 
   /**
-   * High-fidelity athletic humanoid 3D parkour runner avatar
+   * Switch the 3D player avatar to a selected Humanoid or Cartoon character
    */
-  private buildProceduralPlayer(): THREE.Group {
-    const rootGroup = new THREE.Group();
-
-    // Inner body group allows front-flips and body tilts without rotating contact shadow
-    this.innerBodyGroup = new THREE.Group();
-    rootGroup.add(this.innerBodyGroup);
-
-    // Common PBR materials
-    const whiteFabricMat = new THREE.MeshStandardMaterial({
-      color: '#f8fafc',
-      roughness: 0.35,
-      metalness: 0.1,
-    });
-    const darkSlateMat = new THREE.MeshStandardMaterial({
-      color: '#0f172a',
-      roughness: 0.25,
-      metalness: 0.3,
-    });
-    const charcoalMat = new THREE.MeshStandardMaterial({
-      color: '#1e293b',
-      roughness: 0.6,
-      metalness: 0.1,
-    });
-    const orangeAccentMat = new THREE.MeshStandardMaterial({
-      color: '#f97316',
-      roughness: 0.3,
-      metalness: 0.2,
-    });
-    const cyanGlowMat = new THREE.MeshBasicMaterial({ color: '#38bdf8' });
-    const flameGlowMat = new THREE.MeshBasicMaterial({ color: '#f97316' });
-
-    // 1. Torso: Athletic parkour jacket / vest
-    const torsoGeo = new THREE.BoxGeometry(0.48, 0.68, 0.28);
-    this.torsoMesh = new THREE.Mesh(torsoGeo, whiteFabricMat);
-    this.torsoMesh.position.y = 1.05;
-    this.torsoMesh.castShadow = !this.isSoftwareGl;
-    this.innerBodyGroup.add(this.torsoMesh);
-
-    // Two-tone shoulder pads / vest panels
-    const vestPanelGeo = new THREE.BoxGeometry(0.5, 0.28, 0.3);
-    const vestPanel = new THREE.Mesh(vestPanelGeo, darkSlateMat);
-    vestPanel.position.set(0, 1.25, 0);
-    this.innerBodyGroup.add(vestPanel);
-
-    // Glowing cyber spine strip on the back
-    const spineGeo = new THREE.BoxGeometry(0.06, 0.52, 0.04);
-    this.spineGlowMesh = new THREE.Mesh(spineGeo, cyanGlowMat);
-    this.spineGlowMesh.position.set(0, 1.05, 0.145);
-    this.innerBodyGroup.add(this.spineGlowMesh);
-
-    // Front chest badge
-    const badgeGeo = new THREE.BoxGeometry(0.16, 0.16, 0.04);
-    const badgeMesh = new THREE.Mesh(badgeGeo, orangeAccentMat);
-    badgeMesh.position.set(0, 1.15, -0.145);
-    this.innerBodyGroup.add(badgeMesh);
-
-    // 2. Aerodynamic Jet Thruster Pack on runner's back
-    const packGeo = new THREE.BoxGeometry(0.32, 0.38, 0.12);
-    this.backpackMesh = new THREE.Mesh(packGeo, darkSlateMat);
-    this.backpackMesh.position.set(0, 1.08, 0.2);
-    this.innerBodyGroup.add(this.backpackMesh);
-
-    // Twin micro-nozzles
-    const nozzleGeo = new THREE.CylinderGeometry(0.04, 0.06, 0.1, 8);
-    const nozzleL = new THREE.Mesh(nozzleGeo, darkSlateMat);
-    nozzleL.rotation.x = Math.PI;
-    nozzleL.position.set(-0.1, 0.86, 0.22);
-    const nozzleR = new THREE.Mesh(nozzleGeo, darkSlateMat);
-    nozzleR.rotation.x = Math.PI;
-    nozzleR.position.set(0.1, 0.86, 0.22);
-    this.innerBodyGroup.add(nozzleL, nozzleR);
-
-    // Thruster flame jets (flares up on Jump / Double Jump / Dash)
-    const flameGeo = new THREE.ConeGeometry(0.045, 0.18, 6);
-    this.thrusterLMesh = new THREE.Mesh(flameGeo, flameGlowMat);
-    this.thrusterLMesh.rotation.x = Math.PI;
-    this.thrusterLMesh.position.set(-0.1, 0.76, 0.22);
-    this.thrusterLMesh.visible = false;
-
-    this.thrusterRMesh = new THREE.Mesh(flameGeo, flameGlowMat);
-    this.thrusterRMesh.rotation.x = Math.PI;
-    this.thrusterRMesh.position.set(0.1, 0.76, 0.22);
-    this.thrusterRMesh.visible = false;
-    this.innerBodyGroup.add(this.thrusterLMesh, this.thrusterRMesh);
-
-    // 3. Head & Helmet Visor
-    const neckGeo = new THREE.CylinderGeometry(0.09, 0.1, 0.1, 8);
-    const neckMesh = new THREE.Mesh(neckGeo, charcoalMat);
-    neckMesh.position.set(0, 1.42, 0);
-    this.innerBodyGroup.add(neckMesh);
-
-    const headGeo = new THREE.BoxGeometry(0.32, 0.34, 0.34);
-    this.headMesh = new THREE.Mesh(headGeo, darkSlateMat);
-    this.headMesh.position.set(0, 1.6, 0);
-    this.headMesh.castShadow = !this.isSoftwareGl;
-    this.innerBodyGroup.add(this.headMesh);
-
-    // Glowing aerodynamic visor
-    const visorGeo = new THREE.BoxGeometry(0.28, 0.11, 0.06);
-    this.visorMesh = new THREE.Mesh(visorGeo, cyanGlowMat);
-    this.visorMesh.position.set(0, 1.6, -0.175);
-    this.innerBodyGroup.add(this.visorMesh);
-
-    // Side ear comms
-    const earGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.36, 8);
-    const earMesh = new THREE.Mesh(earGeo, orangeAccentMat);
-    earMesh.rotation.z = Math.PI / 2;
-    earMesh.position.set(0, 1.6, 0);
-    this.innerBodyGroup.add(earMesh);
-
-    // 4. Limbs: Arms with shoulder pivots & runner gloves
-    const upperArmGeo = new THREE.BoxGeometry(0.12, 0.32, 0.12);
-    const forearmGeo = new THREE.BoxGeometry(0.11, 0.28, 0.11);
-    const gloveGeo = new THREE.BoxGeometry(0.12, 0.14, 0.13);
-
-    // Left Arm
-    this.leftArmGroup = new THREE.Group();
-    this.leftArmGroup.position.set(-0.34, 1.35, 0);
-    const lUpper = new THREE.Mesh(upperArmGeo, whiteFabricMat);
-    lUpper.position.y = -0.14;
-    const lForearm = new THREE.Mesh(forearmGeo, charcoalMat);
-    lForearm.position.y = -0.4;
-    const lGlove = new THREE.Mesh(gloveGeo, orangeAccentMat);
-    lGlove.position.y = -0.56;
-    this.leftArmGroup.add(lUpper, lForearm, lGlove);
-    this.innerBodyGroup.add(this.leftArmGroup);
-
-    // Right Arm
-    this.rightArmGroup = new THREE.Group();
-    this.rightArmGroup.position.set(0.34, 1.35, 0);
-    const rUpper = new THREE.Mesh(upperArmGeo, whiteFabricMat);
-    rUpper.position.y = -0.14;
-    const rForearm = new THREE.Mesh(forearmGeo, charcoalMat);
-    rForearm.position.y = -0.4;
-    const rGlove = new THREE.Mesh(gloveGeo, orangeAccentMat);
-    rGlove.position.y = -0.56;
-    this.rightArmGroup.add(rUpper, rForearm, rGlove);
-    this.innerBodyGroup.add(this.rightArmGroup);
-
-    // 5. Limbs: Legs with hip pivots, knee guards & luminous pro sneakers
-    const thighGeo = new THREE.BoxGeometry(0.16, 0.36, 0.16);
-    const calfGeo = new THREE.BoxGeometry(0.14, 0.34, 0.14);
-    const kneeGeo = new THREE.BoxGeometry(0.16, 0.08, 0.18);
-    const shoeGeo = new THREE.BoxGeometry(0.18, 0.12, 0.32);
-    const soleGeo = new THREE.BoxGeometry(0.18, 0.03, 0.32);
-
-    // Left Leg
-    this.leftLegGroup = new THREE.Group();
-    this.leftLegGroup.position.set(-0.16, 0.72, 0);
-    const lThigh = new THREE.Mesh(thighGeo, charcoalMat);
-    lThigh.position.y = -0.16;
-    const lKnee = new THREE.Mesh(kneeGeo, darkSlateMat);
-    lKnee.position.set(0, -0.34, 0.01);
-    const lCalf = new THREE.Mesh(calfGeo, darkSlateMat);
-    lCalf.position.y = -0.48;
-    const lShoe = new THREE.Mesh(shoeGeo, orangeAccentMat);
-    lShoe.position.set(0, -0.66, -0.05);
-    const lSole = new THREE.Mesh(soleGeo, cyanGlowMat);
-    lSole.position.set(0, -0.72, -0.05);
-    this.leftLegGroup.add(lThigh, lKnee, lCalf, lShoe, lSole);
-    this.innerBodyGroup.add(this.leftLegGroup);
-
-    // Right Leg
-    this.rightLegGroup = new THREE.Group();
-    this.rightLegGroup.position.set(0.16, 0.72, 0);
-    const rThigh = new THREE.Mesh(thighGeo, charcoalMat);
-    rThigh.position.y = -0.16;
-    const rKnee = new THREE.Mesh(kneeGeo, darkSlateMat);
-    rKnee.position.set(0, -0.34, 0.01);
-    const rCalf = new THREE.Mesh(calfGeo, darkSlateMat);
-    rCalf.position.y = -0.48;
-    const rShoe = new THREE.Mesh(shoeGeo, orangeAccentMat);
-    rShoe.position.set(0, -0.66, -0.05);
-    const rSole = new THREE.Mesh(soleGeo, cyanGlowMat);
-    rSole.position.set(0, -0.72, -0.05);
-    this.rightLegGroup.add(rThigh, rKnee, rCalf, rShoe, rSole);
-    this.innerBodyGroup.add(this.rightLegGroup);
-
-    // 6. Contact shadow disc on ground
-    const shadowGeo = new THREE.CircleGeometry(0.55, 16);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      color: '#000000',
-      transparent: true,
-      opacity: 0.45,
-      depthWrite: false,
-    });
-    this.contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
-    this.contactShadow.rotation.x = -Math.PI / 2;
-    this.contactShadow.position.y = 0.02;
-    rootGroup.add(this.contactShadow);
-
-    // 7. Sleek minimalist directional guide arrow
-    const arrowShape = new THREE.Shape();
-    arrowShape.moveTo(0, -0.9); // Tip
-    arrowShape.lineTo(0.2, -0.55);
-    arrowShape.lineTo(0.08, -0.55);
-    arrowShape.lineTo(0.08, 0);
-    arrowShape.lineTo(-0.08, 0);
-    arrowShape.lineTo(-0.08, -0.55);
-    arrowShape.lineTo(-0.2, -0.55);
-    arrowShape.closePath();
-
-    const arrowGeo = new THREE.ShapeGeometry(arrowShape);
-    const arrowMat = new THREE.MeshBasicMaterial({
-      color: '#06b6d4',
-      transparent: true,
-      opacity: 0.75,
-      depthWrite: false,
-    });
-    this.arrowMesh = new THREE.Mesh(arrowGeo, arrowMat);
-    this.arrowMesh.rotation.x = -Math.PI / 2;
-    this.arrowMesh.position.y = 0.03;
-    rootGroup.add(this.arrowMesh);
-
-    return rootGroup;
+  public setCharacter(characterId: CharacterId) {
+    this.characterId = characterId;
+    if (this.playerGroup) {
+      this.scene.remove(this.playerGroup);
+    }
+    this.characterRig = buildCharacterRig(characterId, this.isSoftwareGl);
+    this.playerGroup = this.characterRig.rootGroup;
+    this.scene.add(this.playerGroup);
   }
 
   private mouseRaycaster = new THREE.Raycaster();
@@ -946,83 +728,13 @@ export class ParkourRenderer {
   /**
    * Updates player 3D avatar pose, rotation, and animation
    */
-  public updatePlayerMesh(player: PlayerPhysicsState, time: number) {
-    this.playerGroup.position.set(player.position.x, player.position.y, player.position.z);
-    this.playerGroup.rotation.y = player.rotation.yaw;
-
+  public updatePlayerMesh(player: PlayerPhysicsState, time: number, dt: number = 0.016) {
     // Always third person view - runner avatar is fully visible
     this.cameraMode = 'third_person';
     this.playerGroup.visible = true;
 
-    // Dynamic height scaling during slide
-    const targetScaleY = player.isSliding ? 0.55 : 1.0;
-    this.playerGroup.scale.y = THREE.MathUtils.damp(this.playerGroup.scale.y, targetScaleY, 15, 0.016);
-
-    const isMoving = player.speed > 0.5 && player.isGrounded && !player.isSliding;
-    const runFreq = player.speed * 1.5;
-
-    // Dynamic animation states
-    if (player.isSliding) {
-      // Slide pose: lean backward, legs extended forward, arms balancing
-      this.innerBodyGroup.rotation.x = THREE.MathUtils.damp(this.innerBodyGroup.rotation.x, -0.45, 12, 0.016);
-      this.leftLegGroup.rotation.x = -1.2;
-      this.rightLegGroup.rotation.x = -1.0;
-      this.leftArmGroup.rotation.x = 0.5;
-      this.rightArmGroup.rotation.x = 0.5;
-      this.thrusterLMesh.visible = false;
-      this.thrusterRMesh.visible = false;
-      this.doubleJumpFlipProgress = 0;
-    } else if (!player.isGrounded) {
-      // In-air jumps & aerial acrobatics
-      this.thrusterLMesh.visible = true;
-      this.thrusterRMesh.visible = true;
-
-      if (player.currentAction === 'double_jumping') {
-        // Fast acrobatic front-flip!
-        this.doubleJumpFlipProgress = Math.min(Math.PI * 2, this.doubleJumpFlipProgress + 0.016 * 16);
-        this.innerBodyGroup.rotation.x = -this.doubleJumpFlipProgress;
-        this.thrusterLMesh.scale.set(1.8, 2.8, 1.8);
-        this.thrusterRMesh.scale.set(1.8, 2.8, 1.8);
-      } else {
-        // Standard jump: tuck legs and balance arms
-        this.doubleJumpFlipProgress = 0;
-        this.innerBodyGroup.rotation.x = THREE.MathUtils.damp(this.innerBodyGroup.rotation.x, 0.15, 10, 0.016);
-        this.leftArmGroup.rotation.x = -0.5;
-        this.rightArmGroup.rotation.x = -0.5;
-        this.leftLegGroup.rotation.x = -0.3;
-        this.rightLegGroup.rotation.x = 0.2;
-        this.thrusterLMesh.scale.set(1.0, 1.4, 1.0);
-        this.thrusterRMesh.scale.set(1.0, 1.4, 1.0);
-      }
-    } else {
-      // Ground movement & running
-      this.doubleJumpFlipProgress = 0;
-      this.thrusterLMesh.visible = false;
-      this.thrusterRMesh.visible = false;
-
-      // Athletic torso bounce and forward stride lean
-      const torsoBounce = isMoving ? Math.abs(Math.sin(time * runFreq)) * 0.05 : 0;
-      this.innerBodyGroup.position.y = THREE.MathUtils.damp(this.innerBodyGroup.position.y, torsoBounce, 15, 0.016);
-      const forwardLean = isMoving ? 0.14 : 0;
-      this.innerBodyGroup.rotation.x = THREE.MathUtils.damp(this.innerBodyGroup.rotation.x, forwardLean, 10, 0.016);
-
-      // Arm & leg swing
-      const armSwing = isMoving ? Math.sin(time * runFreq) * 0.8 : 0;
-      const legSwing = isMoving ? Math.sin(time * runFreq) * 0.9 : 0;
-
-      this.leftArmGroup.rotation.x = armSwing;
-      this.rightArmGroup.rotation.x = -armSwing;
-      this.leftLegGroup.rotation.x = -legSwing;
-      this.rightLegGroup.rotation.x = legSwing;
-    }
-
-    // Wall run body lean
-    if (player.isWallRunning) {
-      const tilt = player.wallRunSide === 'left' ? -0.4 : 0.4;
-      this.playerGroup.rotation.z = THREE.MathUtils.damp(this.playerGroup.rotation.z, tilt, 14, 0.016);
-    } else {
-      this.playerGroup.rotation.z = THREE.MathUtils.damp(this.playerGroup.rotation.z, 0, 10, 0.016);
-    }
+    // Animate full humanoid / cartoon character rig
+    animateCharacterRig(this.characterRig, player, time, dt);
 
     // Speed lines
     const isHighSpeed = player.speed > 16 || player.isDashing;

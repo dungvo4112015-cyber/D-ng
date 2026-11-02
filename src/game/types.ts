@@ -7,6 +7,25 @@ export type GameState = 'title' | 'playing' | 'paused' | 'gameover';
 
 export type CameraMode = 'third_person' | 'first_person';
 
+export type CharacterId = 'kaito' | 'kibo' | 'aoi' | 'sparky';
+
+export interface CharacterDefinition {
+  id: CharacterId;
+  name: string;
+  subtitle: string;
+  category: 'human' | 'cartoon';
+  badge: string;
+  description: string;
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    skin?: string;
+    hair?: string;
+    eyes?: string;
+  };
+}
+
 export type ParkourAction = 'idle' | 'running' | 'sprinting' | 'jumping' | 'double_jumping' | 'falling' | 'sliding' | 'wallrunning' | 'dashing' | 'vaulting';
 
 export interface Vector3D {
