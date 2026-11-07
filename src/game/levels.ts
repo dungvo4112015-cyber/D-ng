@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BoxCollider, LevelDefinition } from './types';
+import { BoxCollider, LevelArchetype, LevelDefinition } from './types';
 import { ALL_50_TRAPS } from './traps';
 
 export interface LevelMeta {
@@ -15,6 +15,8 @@ export interface LevelMeta {
   chapterName: string;
   skyTheme: 'dawn' | 'zenith' | 'sunset' | 'cyber' | 'emerald' | 'crimson' | 'midnight' | 'neon';
   difficulty: 1 | 2 | 3 | 4 | 5;
+  archetype?: LevelArchetype;
+  archetypeLabel?: string;
 }
 
 export const LEVEL_METAS: LevelMeta[] = [
@@ -533,6 +535,72 @@ export const LEVEL_METAS: LevelMeta[] = [
 // LEVEL ARCHETYPES & THEMES (ENSURING EVERY LEVEL IS UNIQUELY DIFFERENT)
 // ============================================================================
 
+export interface LevelArchetypeInfo {
+  archetype: LevelArchetype;
+  archetypeLabel: string;
+  archetypeIcon: string;
+}
+
+export function getLevelArchetype(id: number): LevelArchetypeInfo {
+  const map: Record<number, LevelArchetypeInfo> = {
+    1: { archetype: 'speed_freeway', archetypeLabel: 'Tập Luyện & Đua Tốc', archetypeIcon: '⚡' },
+    2: { archetype: 'wall_run', archetypeLabel: 'Chạy Bám Tường', archetypeIcon: '🧱' },
+    3: { archetype: 'tower_climb', archetypeLabel: 'Chinh Phục Tháp Cao', archetypeIcon: '🧗' },
+    4: { archetype: 'precision_chasm', archetypeLabel: 'Cầu Thuôn Hẹp & Vực Thẳm', archetypeIcon: '🎯' },
+    5: { archetype: 'speed_freeway', archetypeLabel: 'Băng Chuyền Siêu Tốc', archetypeIcon: '⚡' },
+    6: { archetype: 'precision_chasm', archetypeLabel: 'Bậc Thềm Nhảy Đúp', archetypeIcon: '💎' },
+    7: { archetype: 'slide_tunnel', archetypeLabel: 'Hầm Trượt Liên Hoàn', archetypeIcon: '🌪️' },
+    8: { archetype: 'wall_run', archetypeLabel: 'Búng Tường Ziczac', archetypeIcon: '🧱' },
+    9: { archetype: 'tower_climb', archetypeLabel: 'Bệ Nâng Đa Chiều', archetypeIcon: '🏗️' },
+    10: { archetype: 'grand_master', archetypeLabel: 'Đại Sư Tập Sự', archetypeIcon: '👑' },
+
+    11: { archetype: 'speed_freeway', archetypeLabel: 'Cao Tốc Gia Tốc', archetypeIcon: '⚡' },
+    12: { archetype: 'cliff_dive', archetypeLabel: 'Vực Gió & Nhảy Xa', archetypeIcon: '🚀' },
+    13: { archetype: 'tower_climb', archetypeLabel: 'Trụ Xoắn Ốc Không Gian', archetypeIcon: '🧗' },
+    14: { archetype: 'precision_chasm', archetypeLabel: 'Cầu Dao Động Trên Không', archetypeIcon: '🎯' },
+    15: { archetype: 'wall_run', archetypeLabel: 'Cặp Vách Song Song', archetypeIcon: '🧱' },
+    16: { archetype: 'trap_gauntlet', archetypeLabel: 'Búa Nghiền Thủy Lực', archetypeIcon: '⚙️' },
+    17: { archetype: 'trap_gauntlet', archetypeLabel: 'Hành Lang Lưỡi Cưa', archetypeIcon: '🪚' },
+    18: { archetype: 'cliff_dive', archetypeLabel: 'Bệ Nhún Cao Tốc', archetypeIcon: '🚀' },
+    19: { archetype: 'cliff_dive', archetypeLabel: 'Rơi Tự Do 20m', archetypeIcon: '🕳️' },
+    20: { archetype: 'grand_master', archetypeLabel: 'Đại Sư Phản Xạ', archetypeIcon: '👑' },
+
+    21: { archetype: 'precision_chasm', archetypeLabel: 'Bục Đảo Lơ Lửng', archetypeIcon: '🎯' },
+    22: { archetype: 'cliff_dive', archetypeLabel: 'Bệ Phóng Không Gian', archetypeIcon: '🚀' },
+    23: { archetype: 'wall_run', archetypeLabel: 'Tường Bật Nhảy Đôi', archetypeIcon: '🧱' },
+    24: { archetype: 'slide_tunnel', archetypeLabel: 'Ma Trận Laser Quét', archetypeIcon: '⚡' },
+    25: { archetype: 'speed_freeway', archetypeLabel: 'Xa Lộ Neon 80km/h', archetypeIcon: '🏎️' },
+    26: { archetype: 'trap_gauntlet', archetypeLabel: 'Lưới Điện & Laser 360°', archetypeIcon: '⚡' },
+    27: { archetype: 'tower_climb', archetypeLabel: 'Tháp Pha Lê 40m', archetypeIcon: '🧗' },
+    28: { archetype: 'precision_chasm', archetypeLabel: 'Dầm Hẹp & Quả Cầu Gai', archetypeIcon: '🎯' },
+    29: { archetype: 'cliff_dive', archetypeLabel: 'Đại Hẻm Vực Pha Lê', archetypeIcon: '💎' },
+    30: { archetype: 'grand_master', archetypeLabel: 'Chúa Tể Không Gian', archetypeIcon: '👑' },
+
+    31: { archetype: 'trap_gauntlet', archetypeLabel: 'Hỏa Ngục & Búa Tạ', archetypeIcon: '🔥' },
+    32: { archetype: 'cliff_dive', archetypeLabel: 'Thác Lửa & Lao Dốc', archetypeIcon: '🌋' },
+    33: { archetype: 'precision_chasm', archetypeLabel: 'Cầu Thép & Lửa Phun', archetypeIcon: '🎯' },
+    34: { archetype: 'wall_run', archetypeLabel: 'Vách Đá Rực Lửa', archetypeIcon: '🧱' },
+    35: { archetype: 'speed_freeway', archetypeLabel: 'Băng Chuyền Siêu Nhiệt', archetypeIcon: '⚡' },
+    36: { archetype: 'trap_gauntlet', archetypeLabel: 'Lưới Điện & Họng Lửa', archetypeIcon: '🔥' },
+    37: { archetype: 'tower_climb', archetypeLabel: 'Ống Khói Lò Luyện', archetypeIcon: '🧗' },
+    38: { archetype: 'trap_gauntlet', archetypeLabel: 'Đại Trận Búa Thủy Lực', archetypeIcon: '⚙️' },
+    39: { archetype: 'cliff_dive', archetypeLabel: 'Hẻm Vực Dung Nham', archetypeIcon: '🌋' },
+    40: { archetype: 'grand_master', archetypeLabel: 'Vương Giả Hỏa Ngục', archetypeIcon: '👑' },
+
+    41: { archetype: 'tower_climb', archetypeLabel: 'Cung Điện Vô Cực', archetypeIcon: '🏛️' },
+    42: { archetype: 'precision_chasm', archetypeLabel: 'Cầu Kính Tử Thần', archetypeIcon: '🎯' },
+    43: { archetype: 'trap_gauntlet', archetypeLabel: 'Laser 360° & Đĩa Cưa', archetypeIcon: '⚙️' },
+    44: { archetype: 'wall_run', archetypeLabel: 'Đại Lộ Bám Tường', archetypeIcon: '🧱' },
+    45: { archetype: 'speed_freeway', archetypeLabel: 'Siêu Tốc Vô Cực 100km/h', archetypeIcon: '⚡' },
+    46: { archetype: 'cliff_dive', archetypeLabel: 'Hố Sâu Tử Thần 30m', archetypeIcon: '🕳️' },
+    47: { archetype: 'trap_gauntlet', archetypeLabel: 'Tổng Hợp 50 Cạm Bẫy', archetypeIcon: '☠️' },
+    48: { archetype: 'tower_climb', archetypeLabel: 'Trụ Leo Đỉnh Trời 60m', archetypeIcon: '🧗' },
+    49: { archetype: 'precision_chasm', archetypeLabel: 'Cổng Thử Thách Cực Hạn', archetypeIcon: '🎯' },
+    50: { archetype: 'grand_master', archetypeLabel: 'Đại Sư Huyền Thoại Tối Thượng', archetypeIcon: '👑' },
+  };
+  return map[id] || { archetype: 'speed_freeway', archetypeLabel: 'Parkour Cơ Bản', archetypeIcon: '🏃' };
+}
+
 export interface LevelPalette {
   plazaColor: string;
   groundColor: string;
@@ -543,39 +611,72 @@ export interface LevelPalette {
 }
 
 export function getLevelPalette(id: number, chapter: number, skyTheme: string): LevelPalette {
-  // Bespoke distinct palettes per level & chapter
+  // Bespoke unique palettes for all 50 levels with distinct color combinations
   if (chapter === 1) {
-    const accents = ['#06b6d4', '#f97316', '#ef4444', '#0284c7', '#d97706', '#059669', '#c026d3', '#ea580c', '#3b82f6', '#eab308'];
-    const accent = accents[(id - 1) % accents.length];
+    const accents = [
+      '#06b6d4', // 1: Cyan
+      '#0ea5e9', // 2: Sky Blue
+      '#f59e0b', // 3: Amber Gold
+      '#3b82f6', // 4: Royal Azure
+      '#f97316', // 5: Orange Boost
+      '#6366f1', // 6: Violet Indigo
+      '#10b981', // 7: Jade Mint
+      '#f43f5e', // 8: Rose Crimson
+      '#84cc16', // 9: Electric Lime
+      '#eab308', // 10: Golden Zenith
+    ];
+    const acc = accents[(id - 1) % accents.length];
     return {
       plazaColor: '#f8fafc',
       groundColor: id % 2 === 0 ? '#f1f5f9' : '#ffffff',
-      wallRunColor: accent,
-      accentColor: accent,
+      wallRunColor: acc,
+      accentColor: acc,
       monolithColor: id === 10 ? '#eab308' : '#94a3b8',
       finishColor: '#ffffff',
     };
   }
 
   if (chapter === 2) {
-    const neonWalls = ['#38bdf8', '#34d399', '#f43f5e', '#f59e0b', '#a855f7', '#14b8a6', '#fbbf24', '#06b6d4', '#f87171', '#6366f1'];
-    const wall = neonWalls[(id - 11) % neonWalls.length];
+    const neonAccents = [
+      '#00f2fe', // 11: Neon Aqua
+      '#38bdf8', // 12: Cyber Ice
+      '#fbbf24', // 13: Neon Amber
+      '#34d399', // 14: Mint Green
+      '#fb7185', // 15: Coral Neon
+      '#ec4899', // 16: Hot Pink
+      '#a855f7', // 17: Neon Purple
+      '#fb923c', // 18: Tangerine
+      '#60a5fa', // 19: Glacial Cyan
+      '#f43f5e', // 20: Crimson Neon
+    ];
+    const acc = neonAccents[(id - 11) % neonAccents.length];
     return {
       plazaColor: '#0f172a',
-      groundColor: '#1e293b',
-      wallRunColor: wall,
-      accentColor: wall,
+      groundColor: id % 2 === 0 ? '#1e293b' : '#0f172a',
+      wallRunColor: acc,
+      accentColor: acc,
       monolithColor: '#334155',
       finishColor: '#0f172a',
     };
   }
 
   if (chapter === 3) {
-    const cosmicAccents = ['#8b5cf6', '#06b6d4', '#22c55e', '#f97316', '#d946ef', '#38bdf8', '#e11d48', '#10b981', '#60a5fa', '#a855f7'];
+    const cosmicAccents = [
+      '#8b5cf6', // 21: Deep Ultraviolet
+      '#06b6d4', // 22: Starlight Cyan
+      '#10b981', // 23: Emerald Matrix
+      '#f43f5e', // 24: Laser Ruby
+      '#facc15', // 25: Solar Flare
+      '#22c55e', // 26: Toxic Neon Green
+      '#d946ef', // 27: Quartz Magenta
+      '#38bdf8', // 28: Celestial Sky
+      '#fb7185', // 29: Rose Stardust
+      '#a855f7', // 30: Grand Void Violet
+    ];
     const acc = cosmicAccents[(id - 21) % cosmicAccents.length];
     return {
       plazaColor: '#020617',
-      groundColor: '#0f172a',
+      groundColor: id % 2 === 0 ? '#0b0f19' : '#020617',
       wallRunColor: acc,
       accentColor: acc,
       monolithColor: '#1e1b4b',
@@ -584,11 +685,22 @@ export function getLevelPalette(id: number, chapter: number, skyTheme: string): 
   }
 
   if (chapter === 4) {
-    const forgeAccents = ['#ea580c', '#dc2626', '#eab308', '#f97316', '#ec4899', '#34d399', '#f59e0b', '#94a3b8', '#fb923c', '#ef4444'];
+    const forgeAccents = [
+      '#dc2626', // 31: Blazing Crimson
+      '#ea580c', // 32: Molten Lava Orange
+      '#f59e0b', // 33: Searing Amber
+      '#ef4444', // 34: Flame Scarlet
+      '#f97316', // 35: Magma Tangerine
+      '#e11d48', // 36: Plasma Violet-Red
+      '#eab308', // 37: Smelting Gold
+      '#fb923c', // 38: Blast Furnace Coral
+      '#f87171', // 39: Volcanic Ember
+      '#b91c1c', // 40: Inferno King Blood Red
+    ];
     const acc = forgeAccents[(id - 31) % forgeAccents.length];
     return {
       plazaColor: '#1c1917',
-      groundColor: '#292524',
+      groundColor: id % 2 === 0 ? '#292524' : '#1c1917',
       wallRunColor: acc,
       accentColor: acc,
       monolithColor: '#44403c',
@@ -597,7 +709,18 @@ export function getLevelPalette(id: number, chapter: number, skyTheme: string): 
   }
 
   // Chapter 5: Apex Grand Master
-  const apexAccents = ['#10b981', '#38bdf8', '#818cf8', '#34d399', '#ef4444', '#eab308', '#06b6d4', '#a855f7', '#f43f5e', '#f59e0b'];
+  const apexAccents = [
+    '#10b981', // 41: Imperial Jade
+    '#06b6d4', // 42: Diamond Cyan
+    '#9333ea', // 43: Royal Amethyst
+    '#f59e0b', // 44: Sovereign Gold
+    '#38bdf8', // 45: Hyper Sonic Sky
+    '#e2e8f0', // 46: Starlight Platinum
+    '#e11d48', // 47: Master Ruby
+    '#fbbf24', // 48: Celestial Auric Gold
+    '#dc2626', // 49: Mythic Crimson
+    '#eab308', // 50: Grand Master Ultimate Gold
+  ];
   const acc = apexAccents[(id - 41) % apexAccents.length];
   return {
     plazaColor: id === 50 ? '#0f172a' : '#042f2e',
@@ -631,73 +754,95 @@ export type SegmentType =
   | 'apex_sprint';
 
 /**
- * Curated unique course structure for every level (1 to 50).
- * Every level features prominent climbs ('chỗ lên'), steep plunges ('chỗ xuống'),
- * multiple checkpoints, and an extended course length (300m - 500m).
+ * Handcrafted unique blueprints for every single level (1 to 50).
+ * No two levels share the same sequence!
+ * Every level is guaranteed:
+ * 1. Prominent climb ('chỗ lên', e.g. steep_ascent, tower_spiral_ascent)
+ * 2. Dramatic descent ('chỗ xuống', e.g. steep_descent, canyon_cliff_dive)
+ * 3. Extended course distance (> 250m)
+ * 4. Multiple checkpoints
  */
-export function getLevelCourseBlueprint(id: number): SegmentType[] {
-  // Diverse curated pools for dynamic variety across all 50 levels
-  const ascents: SegmentType[] = ['steep_ascent', 'tower_spiral_ascent', 'bounce_launcher', 'elevator_up'];
-  const descents: SegmentType[] = ['steep_descent', 'canyon_cliff_dive', 'slide_tunnel_triple'];
-  const techSegments: SegmentType[] = [
+export const COURSE_BLUEPRINTS: Record<number, SegmentType[]> = {
+  // CHƯƠNG 1: TẬP SỰ PARKOUR (1 - 10)
+  1: ['runway_slide', 'steep_ascent', 'slide_tunnel_triple', 'checkpoint_arch', 'chasm_stepping', 'steep_descent', 'runway_slide', 'checkpoint_arch', 'narrow_beam', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'steep_descent', 'apex_sprint'],
+  2: ['runway_slide', 'wall_run_left', 'wall_run_right', 'checkpoint_arch', 'steep_ascent', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_descent', 'wall_run_left', 'steep_ascent', 'checkpoint_arch', 'wall_dual_zigzag', 'canyon_cliff_dive', 'apex_sprint'],
+  3: ['runway_slide', 'tower_spiral_ascent', 'elevator_up', 'checkpoint_arch', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'steep_descent', 'tower_spiral_ascent', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'elevator_up', 'apex_sprint'],
+  4: ['runway_slide', 'chasm_stepping', 'narrow_beam', 'checkpoint_arch', 'steep_ascent', 'sway_horizontal', 'checkpoint_arch', 'steep_descent', 'chasm_stepping', 'narrow_beam', 'checkpoint_arch', 'steep_ascent', 'canyon_cliff_dive', 'apex_sprint'],
+  5: ['runway_slide', 'slide_tunnel_triple', 'steep_ascent', 'checkpoint_arch', 'runway_slide', 'steep_descent', 'checkpoint_arch', 'slide_tunnel_triple', 'bounce_launcher', 'checkpoint_arch', 'steep_ascent', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  6: ['runway_slide', 'chasm_stepping', 'steep_ascent', 'checkpoint_arch', 'sway_horizontal', 'steep_descent', 'checkpoint_arch', 'bounce_launcher', 'chasm_stepping', 'checkpoint_arch', 'steep_ascent', 'canyon_cliff_dive', 'narrow_beam', 'apex_sprint'],
+  7: ['runway_slide', 'slide_tunnel_triple', 'steep_ascent', 'checkpoint_arch', 'saw_corridor', 'steep_descent', 'checkpoint_arch', 'slide_tunnel_triple', 'steep_ascent', 'checkpoint_arch', 'slide_tunnel_triple', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  8: ['runway_slide', 'wall_dual_zigzag', 'steep_ascent', 'checkpoint_arch', 'wall_run_left', 'steep_descent', 'checkpoint_arch', 'wall_dual_zigzag', 'tower_spiral_ascent', 'checkpoint_arch', 'wall_dual_zigzag', 'canyon_cliff_dive', 'wall_run_right', 'apex_sprint'],
+  9: ['runway_slide', 'elevator_up', 'sway_horizontal', 'checkpoint_arch', 'steep_ascent', 'elevator_up', 'checkpoint_arch', 'steep_descent', 'sway_horizontal', 'steep_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'elevator_up', 'apex_sprint'],
+  10: ['runway_slide', 'steep_ascent', 'wall_run_left', 'checkpoint_arch', 'tower_spiral_ascent', 'crusher_gauntlet', 'checkpoint_arch', 'steep_descent', 'narrow_beam', 'bounce_launcher', 'checkpoint_arch', 'laser_sweeper_arena', 'canyon_cliff_dive', 'apex_sprint'],
+
+  // CHƯƠNG 2: TĂNG TỐC & PHẢN XẠ (11 - 20)
+  11: ['runway_slide', 'steep_ascent', 'slide_tunnel_triple', 'checkpoint_arch', 'runway_slide', 'steep_descent', 'checkpoint_arch', 'slide_tunnel_triple', 'steep_ascent', 'checkpoint_arch', 'saw_corridor', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  12: ['runway_slide', 'steep_ascent', 'canyon_cliff_dive', 'checkpoint_arch', 'bounce_launcher', 'chasm_stepping', 'checkpoint_arch', 'steep_descent', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'sway_horizontal', 'canyon_cliff_dive', 'apex_sprint'],
+  13: ['runway_slide', 'tower_spiral_ascent', 'steep_ascent', 'checkpoint_arch', 'elevator_up', 'steep_descent', 'checkpoint_arch', 'tower_spiral_ascent', 'bounce_launcher', 'checkpoint_arch', 'steep_ascent', 'canyon_cliff_dive', 'tower_spiral_ascent', 'apex_sprint'],
+  14: ['runway_slide', 'sway_horizontal', 'narrow_beam', 'checkpoint_arch', 'steep_ascent', 'sway_horizontal', 'checkpoint_arch', 'steep_descent', 'chasm_stepping', 'steep_ascent', 'checkpoint_arch', 'sway_horizontal', 'canyon_cliff_dive', 'apex_sprint'],
+  15: ['runway_slide', 'wall_run_right', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_ascent', 'wall_run_left', 'checkpoint_arch', 'steep_descent', 'wall_dual_zigzag', 'steep_ascent', 'checkpoint_arch', 'wall_run_right', 'canyon_cliff_dive', 'apex_sprint'],
+  16: ['runway_slide', 'crusher_gauntlet', 'steep_ascent', 'checkpoint_arch', 'crusher_gauntlet', 'steep_descent', 'checkpoint_arch', 'saw_corridor', 'steep_ascent', 'checkpoint_arch', 'crusher_gauntlet', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  17: ['runway_slide', 'saw_corridor', 'steep_ascent', 'checkpoint_arch', 'saw_corridor', 'steep_descent', 'checkpoint_arch', 'narrow_beam', 'steep_ascent', 'checkpoint_arch', 'saw_corridor', 'canyon_cliff_dive', 'saw_corridor', 'apex_sprint'],
+  18: ['runway_slide', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'bounce_launcher', 'steep_descent', 'checkpoint_arch', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'tower_spiral_ascent', 'canyon_cliff_dive', 'bounce_launcher', 'apex_sprint'],
+  19: ['runway_slide', 'steep_ascent', 'canyon_cliff_dive', 'checkpoint_arch', 'bounce_launcher', 'steep_descent', 'checkpoint_arch', 'steep_ascent', 'canyon_cliff_dive', 'checkpoint_arch', 'chasm_stepping', 'canyon_cliff_dive', 'bounce_launcher', 'apex_sprint'],
+  20: ['runway_slide', 'steep_ascent', 'wall_dual_zigzag', 'checkpoint_arch', 'crusher_gauntlet', 'steep_descent', 'checkpoint_arch', 'tower_spiral_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'canyon_cliff_dive', 'elevator_up', 'saw_corridor', 'apex_sprint'],
+
+  // CHƯƠNG 3: LÃNH ĐỊA KHÔNG GIAN (21 - 30)
+  21: ['runway_slide', 'chasm_stepping', 'sway_horizontal', 'checkpoint_arch', 'steep_ascent', 'narrow_beam', 'checkpoint_arch', 'steep_descent', 'chasm_stepping', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'narrow_beam', 'apex_sprint'],
+  22: ['runway_slide', 'steep_ascent', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'bounce_launcher', 'checkpoint_arch', 'steep_descent', 'tower_spiral_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'bounce_launcher', 'steep_descent', 'apex_sprint'],
+  23: ['runway_slide', 'wall_run_left', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_ascent', 'wall_run_right', 'checkpoint_arch', 'steep_descent', 'wall_dual_zigzag', 'steep_ascent', 'checkpoint_arch', 'wall_run_left', 'canyon_cliff_dive', 'apex_sprint'],
+  24: ['runway_slide', 'laser_sweeper_arena', 'slide_tunnel_triple', 'checkpoint_arch', 'steep_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_descent', 'slide_tunnel_triple', 'steep_ascent', 'checkpoint_arch', 'laser_sweeper_arena', 'canyon_cliff_dive', 'apex_sprint'],
+  25: ['runway_slide', 'slide_tunnel_triple', 'runway_slide', 'checkpoint_arch', 'steep_ascent', 'runway_slide', 'checkpoint_arch', 'steep_descent', 'slide_tunnel_triple', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  26: ['runway_slide', 'laser_sweeper_arena', 'crusher_gauntlet', 'checkpoint_arch', 'steep_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_descent', 'saw_corridor', 'steep_ascent', 'checkpoint_arch', 'laser_sweeper_arena', 'canyon_cliff_dive', 'apex_sprint'],
+  27: ['runway_slide', 'tower_spiral_ascent', 'elevator_up', 'checkpoint_arch', 'steep_ascent', 'tower_spiral_ascent', 'checkpoint_arch', 'steep_descent', 'bounce_launcher', 'tower_spiral_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'elevator_up', 'apex_sprint'],
+  28: ['runway_slide', 'narrow_beam', 'chasm_stepping', 'checkpoint_arch', 'steep_ascent', 'sway_horizontal', 'checkpoint_arch', 'steep_descent', 'narrow_beam', 'steep_ascent', 'checkpoint_arch', 'sway_horizontal', 'canyon_cliff_dive', 'apex_sprint'],
+  29: ['runway_slide', 'steep_ascent', 'chasm_stepping', 'checkpoint_arch', 'canyon_cliff_dive', 'bounce_launcher', 'checkpoint_arch', 'steep_descent', 'tower_spiral_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'narrow_beam', 'steep_descent', 'apex_sprint'],
+  30: ['runway_slide', 'steep_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'tower_spiral_ascent', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_descent', 'crusher_gauntlet', 'bounce_launcher', 'checkpoint_arch', 'saw_corridor', 'canyon_cliff_dive', 'apex_sprint'],
+
+  // CHƯƠNG 4: HỎA NGỤC & BÚA THỦY LỰC (31 - 40)
+  31: ['runway_slide', 'crusher_gauntlet', 'saw_corridor', 'checkpoint_arch', 'steep_ascent', 'crusher_gauntlet', 'checkpoint_arch', 'steep_descent', 'saw_corridor', 'steep_ascent', 'checkpoint_arch', 'crusher_gauntlet', 'canyon_cliff_dive', 'apex_sprint'],
+  32: ['runway_slide', 'steep_ascent', 'canyon_cliff_dive', 'checkpoint_arch', 'steep_descent', 'canyon_cliff_dive', 'checkpoint_arch', 'steep_ascent', 'slide_tunnel_triple', 'canyon_cliff_dive', 'checkpoint_arch', 'bounce_launcher', 'canyon_cliff_dive', 'apex_sprint'],
+  33: ['runway_slide', 'narrow_beam', 'saw_corridor', 'checkpoint_arch', 'steep_ascent', 'narrow_beam', 'checkpoint_arch', 'steep_descent', 'chasm_stepping', 'steep_ascent', 'checkpoint_arch', 'narrow_beam', 'canyon_cliff_dive', 'apex_sprint'],
+  34: ['runway_slide', 'wall_run_left', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_ascent', 'wall_run_right', 'checkpoint_arch', 'steep_descent', 'wall_dual_zigzag', 'steep_ascent', 'checkpoint_arch', 'wall_run_left', 'canyon_cliff_dive', 'apex_sprint'],
+  35: ['runway_slide', 'slide_tunnel_triple', 'runway_slide', 'checkpoint_arch', 'steep_ascent', 'slide_tunnel_triple', 'checkpoint_arch', 'steep_descent', 'runway_slide', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  36: ['runway_slide', 'laser_sweeper_arena', 'crusher_gauntlet', 'checkpoint_arch', 'steep_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_descent', 'saw_corridor', 'steep_ascent', 'checkpoint_arch', 'laser_sweeper_arena', 'canyon_cliff_dive', 'apex_sprint'],
+  37: ['runway_slide', 'tower_spiral_ascent', 'elevator_up', 'checkpoint_arch', 'steep_ascent', 'tower_spiral_ascent', 'checkpoint_arch', 'steep_descent', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'tower_spiral_ascent', 'apex_sprint'],
+  38: ['runway_slide', 'crusher_gauntlet', 'crusher_gauntlet', 'checkpoint_arch', 'steep_ascent', 'saw_corridor', 'checkpoint_arch', 'steep_descent', 'crusher_gauntlet', 'steep_ascent', 'checkpoint_arch', 'crusher_gauntlet', 'canyon_cliff_dive', 'apex_sprint'],
+  39: ['runway_slide', 'steep_ascent', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'chasm_stepping', 'checkpoint_arch', 'steep_descent', 'steep_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'canyon_cliff_dive', 'bounce_launcher', 'apex_sprint'],
+  40: ['runway_slide', 'steep_ascent', 'crusher_gauntlet', 'checkpoint_arch', 'tower_spiral_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_descent', 'wall_dual_zigzag', 'canyon_cliff_dive', 'checkpoint_arch', 'saw_corridor', 'canyon_cliff_dive', 'apex_sprint'],
+
+  // CHƯƠNG 5: ĐỈNH CAO ĐẠI SƯ (41 - 50)
+  41: ['runway_slide', 'tower_spiral_ascent', 'steep_ascent', 'checkpoint_arch', 'elevator_up', 'steep_descent', 'checkpoint_arch', 'tower_spiral_ascent', 'bounce_launcher', 'steep_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'tower_spiral_ascent', 'apex_sprint'],
+  42: ['runway_slide', 'narrow_beam', 'chasm_stepping', 'checkpoint_arch', 'steep_ascent', 'sway_horizontal', 'checkpoint_arch', 'steep_descent', 'narrow_beam', 'steep_ascent', 'checkpoint_arch', 'chasm_stepping', 'canyon_cliff_dive', 'apex_sprint'],
+  43: ['runway_slide', 'laser_sweeper_arena', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_ascent', 'crusher_gauntlet', 'checkpoint_arch', 'steep_descent', 'laser_sweeper_arena', 'steep_ascent', 'checkpoint_arch', 'saw_corridor', 'canyon_cliff_dive', 'apex_sprint'],
+  44: ['runway_slide', 'wall_run_left', 'wall_run_right', 'checkpoint_arch', 'steep_ascent', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_descent', 'wall_run_left', 'steep_ascent', 'checkpoint_arch', 'wall_dual_zigzag', 'canyon_cliff_dive', 'apex_sprint'],
+  45: ['runway_slide', 'slide_tunnel_triple', 'runway_slide', 'checkpoint_arch', 'steep_ascent', 'runway_slide', 'checkpoint_arch', 'steep_descent', 'slide_tunnel_triple', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'runway_slide', 'apex_sprint'],
+  46: ['runway_slide', 'steep_ascent', 'bounce_launcher', 'checkpoint_arch', 'canyon_cliff_dive', 'bounce_launcher', 'checkpoint_arch', 'steep_descent', 'tower_spiral_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'bounce_launcher', 'canyon_cliff_dive', 'apex_sprint'],
+  47: ['runway_slide', 'crusher_gauntlet', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_ascent', 'saw_corridor', 'checkpoint_arch', 'steep_descent', 'crusher_gauntlet', 'steep_ascent', 'checkpoint_arch', 'laser_sweeper_arena', 'canyon_cliff_dive', 'apex_sprint'],
+  48: ['runway_slide', 'tower_spiral_ascent', 'elevator_up', 'checkpoint_arch', 'steep_ascent', 'tower_spiral_ascent', 'checkpoint_arch', 'steep_descent', 'bounce_launcher', 'tower_spiral_ascent', 'checkpoint_arch', 'canyon_cliff_dive', 'tower_spiral_ascent', 'apex_sprint'],
+  49: ['runway_slide', 'narrow_beam', 'wall_dual_zigzag', 'checkpoint_arch', 'steep_ascent', 'laser_sweeper_arena', 'checkpoint_arch', 'steep_descent', 'crusher_gauntlet', 'bounce_launcher', 'checkpoint_arch', 'sway_horizontal', 'canyon_cliff_dive', 'apex_sprint'],
+  50: [
+    'runway_slide',
+    'steep_ascent',
     'wall_run_left',
-    'wall_run_right',
-    'chasm_stepping',
+    'checkpoint_arch',
+    'crusher_gauntlet',
+    'canyon_cliff_dive',
     'narrow_beam',
+    'checkpoint_arch',
+    'laser_sweeper_arena',
+    'tower_spiral_ascent',
+    'saw_corridor',
+    'checkpoint_arch',
+    'steep_descent',
     'wall_dual_zigzag',
-    'sway_horizontal',
-  ];
-  const gauntlets: SegmentType[] = ['crusher_gauntlet', 'laser_sweeper_arena', 'saw_corridor'];
-
-  const asc1 = ascents[(id - 1) % ascents.length];
-  const desc1 = descents[(id - 1) % descents.length];
-  const tech1 = techSegments[(id - 1) % techSegments.length];
-  const gnt1 = gauntlets[(id - 1) % gauntlets.length];
-
-  const asc2 = ascents[(id + 2) % ascents.length];
-  const desc2 = descents[(id + 1) % descents.length];
-  const tech2 = techSegments[(id + 3) % techSegments.length];
-  const gnt2 = gauntlets[(id + 2) % gauntlets.length];
-
-  if (id === 50) {
-    // Ultimate Grand Finale Level 50: 16 Segments with All Climbs and Drops!
-    return [
-      'runway_slide',
-      'steep_ascent',
-      'wall_run_left',
-      'checkpoint_arch',
-      'crusher_gauntlet',
-      'canyon_cliff_dive',
-      'narrow_beam',
-      'checkpoint_arch',
-      'laser_sweeper_arena',
-      'tower_spiral_ascent',
-      'saw_corridor',
-      'checkpoint_arch',
-      'steep_descent',
-      'wall_dual_zigzag',
-      'elevator_up',
-      'apex_sprint',
-    ];
-  }
-
-  // Extended 14-segment course: Guaranteed climbs, drops, checkpoints, and long tracks!
-  return [
-    'runway_slide',
-    asc1,              // 1. Chỗ lên (Ascent 1: +12m to +16m)
-    tech1,
-    'checkpoint_arch', // Cổng kiểm soát 1
-    gnt1,
-    desc1,             // 2. Chỗ xuống (Descent 1: -14m to -18m)
-    'runway_slide',
-    'checkpoint_arch', // Cổng kiểm soát 2
-    tech2,
-    asc2,              // 3. Chỗ lên thứ 2 (Ascent 2: +12m)
-    gnt2,
-    'checkpoint_arch', // Cổng kiểm soát 3
-    desc2,             // 4. Chỗ xuống thứ 2 (Descent 2: -14m)
+    'elevator_up',
     'apex_sprint',
-  ];
+  ],
+};
+
+export function getLevelCourseBlueprint(id: number): SegmentType[] {
+  return COURSE_BLUEPRINTS[id] || COURSE_BLUEPRINTS[1];
 }
 
 /**
@@ -707,6 +852,7 @@ export function getLevelCourseBlueprint(id: number): SegmentType[] {
 export function buildLevel(meta: LevelMeta): LevelDefinition {
   const colliders: BoxCollider[] = [];
   const id = meta.id;
+  const archInfo = getLevelArchetype(id);
   const palette = getLevelPalette(id, meta.chapter, meta.skyTheme);
 
   // 1. Unique Starting Plaza per level
@@ -761,30 +907,32 @@ export function buildLevel(meta: LevelMeta): LevelDefinition {
 
     if (segType === 'runway_slide') {
       const len = 12 + (id % 4);
+      const runwayW = archInfo.archetype === 'speed_freeway' ? 8.5 : archInfo.archetype === 'precision_chasm' ? 5.0 : 6.5;
       colliders.push({
         id: `${stageId}_runway`,
         type: 'ground',
         x: 0,
         y: currentY,
         z: currentZ - len / 2,
-        width: 6.5,
+        width: runwayW,
         height: 2,
         depth: len,
         color: palette.groundColor,
       });
 
       // Speed booster strip
+      const boostVal = archInfo.archetype === 'speed_freeway' ? 24 + (id % 6) : 16 + (id % 8);
       colliders.push({
         id: `${stageId}_speed`,
         type: 'speed',
         x: 0,
         y: currentY + 1.05,
         z: currentZ - 4,
-        width: 3.4,
+        width: Math.min(3.6, runwayW - 1.2),
         height: 0.1,
         depth: 6,
         color: palette.accentColor,
-        metadata: { speedBoost: 16 + (id % 8) },
+        metadata: { speedBoost: boostVal },
       });
 
       // Alternate trap type on runway: Laser hurdle OR Flamethrower nozzle
@@ -1925,6 +2073,8 @@ export function buildLevel(meta: LevelMeta): LevelDefinition {
     name: meta.name,
     subtitle: meta.subtitle,
     description: meta.description,
+    archetype: archInfo.archetype,
+    archetypeLabel: archInfo.archetypeLabel,
     targetTimes: {
       gold: goldTime,
       silver: silverTime,

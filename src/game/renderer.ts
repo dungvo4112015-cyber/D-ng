@@ -8,6 +8,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { BoxCollider, CameraMode, CharacterId, LevelDefinition, PlayerPhysicsState, Vector3D } from './types';
 import { PHYSICS_CONSTANTS } from './rules';
 import { CharacterRig, animateCharacterRig, buildCharacterRig } from './character';
+import { buildRealisticTrap, updateRealisticTrap, TrapVisualInstance } from './trapVisuals';
 
 // Pre-allocated scratch vectors for zero-GC render loop
 const _v1 = new THREE.Vector3();
@@ -27,12 +28,16 @@ export class ParkourRenderer {
   private isDestroyed: boolean = false;
   private levelMeshes: Map<string, THREE.Mesh | THREE.Group> = new Map();
   private movingMeshes: { id: string; mesh: THREE.Mesh | THREE.Group; collider: BoxCollider; origin: Vector3D }[] = [];
+  private trapInstances: TrapVisualInstance[] = [];
 
   // Procedural 3D athletic humanoid / cartoon character rig
   public characterId: CharacterId = 'kaito';
   public characterRig: CharacterRig;
   public playerGroup: THREE.Group;
   private speedLines!: THREE.LineSegments;
+  private hemiLight!: THREE.HemisphereLight;
+  private dirLight!: THREE.DirectionalLight;
+  private rimLight!: THREE.DirectionalLight;
 
   // Camera damping
   private currentCamPos = new THREE.Vector3(0, 5, 10);
@@ -76,8 +81,8 @@ export class ParkourRenderer {
 
     // Setup scene & camera
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#0f172a');
-    this.scene.fog = new THREE.FogExp2('#0f172a', 0.012);
+    this.scene.background = new THREE.Color('#201a4e');
+    this.scene.fog = new THREE.FogExp2('#201a4e', 0.0085);
 
     this.camera = new THREE.PerspectiveCamera(
       this.cameraFovBase,
@@ -95,7 +100,12 @@ export class ParkourRenderer {
     // Setup Lighting
     this.setupLighting();
 
-    // Build procedural humanoid & cartoon character rig
+    // Build distant atmospheric monolith columns & soft cloud mist layers
+    this.buildDistantMonoliths();
+    this.buildCloudMistLayers();
+
+    // Build procedural humanoid & cartoon character rig (Default to Sparky / Cyber Astronaut Runner)
+    this.characterId = 'sparky';
     this.characterRig = buildCharacterRig(this.characterId, this.isSoftwareGl);
     this.playerGroup = this.characterRig.rootGroup;
     this.scene.add(this.playerGroup);
@@ -108,35 +118,103 @@ export class ParkourRenderer {
     window.addEventListener('resize', this.onResize);
   }
 
+  private buildDistantMonoliths() {
+    const monolithGroup = new THREE.Group();
+    const monoMat = new THREE.MeshStandardMaterial({
+      color: '#18133d',
+      roughness: 0.7,
+      metalness: 0.1,
+    });
+    const edgeMat = new THREE.LineBasicMaterial({
+      color: '#4f46e5',
+      transparent: true,
+      opacity: 0.25,
+    });
+
+    const positions = [
+      { x: -35, z: 20, w: 10, h: 80, d: 10 },
+      { x: 38, z: 15, w: 12, h: 90, d: 12 },
+      { x: -45, z: -40, w: 14, h: 110, d: 14 },
+      { x: 42, z: -55, w: 10, h: 85, d: 10 },
+      { x: -38, z: -90, w: 12, h: 95, d: 12 },
+      { x: 36, z: -110, w: 14, h: 100, d: 14 },
+      { x: -42, z: -150, w: 12, h: 90, d: 12 },
+      { x: 40, z: -180, w: 15, h: 105, d: 15 },
+      { x: -48, z: -220, w: 14, h: 110, d: 14 },
+      { x: 38, z: -250, w: 12, h: 88, d: 12 },
+      { x: -40, z: -290, w: 12, h: 92, d: 12 },
+      { x: 44, z: -330, w: 15, h: 115, d: 15 },
+      { x: -36, z: -370, w: 12, h: 90, d: 12 },
+      { x: 40, z: -410, w: 14, h: 100, d: 14 },
+    ];
+
+    positions.forEach((p) => {
+      const geo = new THREE.BoxGeometry(p.w, p.h, p.d);
+      const m = new THREE.Mesh(geo, monoMat);
+      m.position.set(p.x, p.h / 2 - 20, p.z);
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat);
+      m.add(edge);
+      monolithGroup.add(m);
+    });
+
+    this.scene.add(monolithGroup);
+  }
+
+  private buildCloudMistLayers() {
+    const cloudGroup = new THREE.Group();
+    const cloudMat = new THREE.MeshBasicMaterial({
+      color: '#6366f1',
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+    });
+
+    for (let i = 0; i < 18; i++) {
+      const radius = 12 + Math.random() * 16;
+      const geo = new THREE.CircleGeometry(radius, 24);
+      const mesh = new THREE.Mesh(geo, cloudMat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(
+        (Math.random() - 0.5) * 45,
+        -1.5 - Math.random() * 4,
+        -i * 26 + (Math.random() - 0.5) * 15
+      );
+      mesh.scale.set(1.4, 0.9, 1);
+      cloudGroup.add(mesh);
+    }
+
+    this.scene.add(cloudGroup);
+  }
+
   private setupLighting() {
-    // Cool sky/ground ambient fill
-    const hemiLight = new THREE.HemisphereLight('#f8fafc', '#334155', 0.95);
-    hemiLight.position.set(0, 60, 0);
-    this.scene.add(hemiLight);
+    // Atmospheric indigo-violet ambient fill
+    this.hemiLight = new THREE.HemisphereLight('#a5b4fc', '#1e1848', 1.15);
+    this.hemiLight.position.set(0, 60, 0);
+    this.scene.add(this.hemiLight);
 
     // Warm key sun light with soft shadows
-    const dirLight = new THREE.DirectionalLight('#fff7ed', 1.8);
-    dirLight.position.set(25, 45, 20);
+    this.dirLight = new THREE.DirectionalLight('#e0e7ff', 1.6);
+    this.dirLight.position.set(25, 45, 20);
     if (!this.isSoftwareGl) {
-      dirLight.castShadow = true;
-      dirLight.shadow.mapSize.width = 1024;
-      dirLight.shadow.mapSize.height = 1024;
-      dirLight.shadow.camera.near = 5;
-      dirLight.shadow.camera.far = 120;
+      this.dirLight.castShadow = true;
+      this.dirLight.shadow.mapSize.width = 1024;
+      this.dirLight.shadow.mapSize.height = 1024;
+      this.dirLight.shadow.camera.near = 5;
+      this.dirLight.shadow.camera.far = 120;
       const d = 40;
-      dirLight.shadow.camera.left = -d;
-      dirLight.shadow.camera.right = d;
-      dirLight.shadow.camera.top = d;
-      dirLight.shadow.camera.bottom = -d;
-      dirLight.shadow.bias = -0.0005;
-      dirLight.shadow.normalBias = 0.02;
+      this.dirLight.shadow.camera.left = -d;
+      this.dirLight.shadow.camera.right = d;
+      this.dirLight.shadow.camera.top = d;
+      this.dirLight.shadow.camera.bottom = -d;
+      this.dirLight.shadow.bias = -0.0005;
+      this.dirLight.shadow.normalBias = 0.02;
     }
-    this.scene.add(dirLight);
+    this.scene.add(this.dirLight);
 
-    // Subtle blue rim back-light
-    const rimLight = new THREE.DirectionalLight('#38bdf8', 0.6);
-    rimLight.position.set(-20, 20, -30);
-    this.scene.add(rimLight);
+    // Vibrant cyan rim back-light
+    this.rimLight = new THREE.DirectionalLight('#38bdf8', 0.85);
+    this.rimLight.position.set(-20, 20, -30);
+    this.scene.add(this.rimLight);
   }
 
   /**
@@ -198,6 +276,286 @@ export class ParkourRenderer {
     return lines;
   }
 
+
+  /**
+   * Sets sky background, fog, and three-point studio lighting based on biome theme
+   */
+  public setSkyTheme(theme: string) {
+    if (theme === 'zenith') {
+      this.scene.background = new THREE.Color('#0284c7');
+      this.scene.fog = new THREE.FogExp2('#0369a1', 0.010);
+      if (this.hemiLight) this.hemiLight.color.set('#bae6fd');
+      if (this.dirLight) this.dirLight.color.set('#ffffff');
+      if (this.rimLight) this.rimLight.color.set('#38bdf8');
+    } else if (theme === 'sunset') {
+      this.scene.background = new THREE.Color('#451a03');
+      this.scene.fog = new THREE.FogExp2('#7c2d12', 0.011);
+      if (this.hemiLight) this.hemiLight.color.set('#fdba74');
+      if (this.dirLight) this.dirLight.color.set('#f97316');
+      if (this.rimLight) this.rimLight.color.set('#fb923c');
+    } else if (theme === 'cyber') {
+      this.scene.background = new THREE.Color('#201a4e');
+      this.scene.fog = new THREE.FogExp2('#201a4e', 0.0085);
+      if (this.hemiLight) this.hemiLight.color.set('#c084fc');
+      if (this.dirLight) this.dirLight.color.set('#00f0ff');
+      if (this.rimLight) this.rimLight.color.set('#e879f9');
+    } else if (theme === 'emerald') {
+      this.scene.background = new THREE.Color('#022c22');
+      this.scene.fog = new THREE.FogExp2('#064e3b', 0.012);
+      if (this.hemiLight) this.hemiLight.color.set('#34d399');
+      if (this.dirLight) this.dirLight.color.set('#6ee7b7');
+      if (this.rimLight) this.rimLight.color.set('#10b981');
+    } else if (theme === 'crimson') {
+      this.scene.background = new THREE.Color('#2a0808');
+      this.scene.fog = new THREE.FogExp2('#450a0a', 0.011);
+      if (this.hemiLight) this.hemiLight.color.set('#f87171');
+      if (this.dirLight) this.dirLight.color.set('#ef4444');
+      if (this.rimLight) this.rimLight.color.set('#f97316');
+    } else if (theme === 'midnight') {
+      this.scene.background = new THREE.Color('#020617');
+      this.scene.fog = new THREE.FogExp2('#020617', 0.013);
+      if (this.hemiLight) this.hemiLight.color.set('#60a5fa');
+      if (this.dirLight) this.dirLight.color.set('#93c5fd');
+      if (this.rimLight) this.rimLight.color.set('#c084fc');
+    } else if (theme === 'neon') {
+      this.scene.background = new THREE.Color('#080d24');
+      this.scene.fog = new THREE.FogExp2('#172554', 0.012);
+      if (this.hemiLight) this.hemiLight.color.set('#38bdf8');
+      if (this.dirLight) this.dirLight.color.set('#38bdf8');
+      if (this.rimLight) this.rimLight.color.set('#ec4899');
+    } else {
+      this.scene.background = new THREE.Color('#fdba74');
+      this.scene.fog = new THREE.FogExp2('#9a3412', 0.009);
+      if (this.hemiLight) this.hemiLight.color.set('#fed7aa');
+      if (this.dirLight) this.dirLight.color.set('#ffedd5');
+      if (this.rimLight) this.rimLight.color.set('#f97316');
+    }
+  }
+
+  /**
+   * Constructs and adds 3D visuals for a single BoxCollider
+   */
+  public addColliderMesh(col: BoxCollider) {
+    if (this.levelMeshes.has(col.id)) return;
+
+    // 1. Visceral 3D Visuals for Lethal Hazard Traps
+    if (col.type === 'hazard') {
+      const trapInst = buildRealisticTrap(col, this.isSoftwareGl);
+      this.scene.add(trapInst.group);
+      this.levelMeshes.set(col.id, trapInst.group);
+      this.trapInstances.push(trapInst);
+      return;
+    }
+
+    const geo = new THREE.BoxGeometry(col.width, col.height, col.depth);
+    let mat: THREE.Material;
+
+    if (col.type === 'bounce') {
+      // Futuristic Sky-Blue Pad with Glowing Emissive Core
+      mat = new THREE.MeshStandardMaterial({
+        color: '#f0f9ff',
+        roughness: 0.25,
+        metalness: 0.2,
+        emissive: new THREE.Color('#0284c7'),
+        emissiveIntensity: 0.25,
+      });
+    } else if (col.type === 'wall') {
+      mat = new THREE.MeshStandardMaterial({
+        color: col.color || '#c026d3',
+        roughness: 0.25,
+        metalness: 0.15,
+        emissive: new THREE.Color(col.color || '#c026d3'),
+        emissiveIntensity: 0.35,
+      });
+    } else if (col.type === 'speed') {
+      mat = new THREE.MeshStandardMaterial({
+        color: col.color || '#00f0ff',
+        roughness: 0.2,
+        metalness: 0.2,
+        emissive: new THREE.Color(col.color || '#00f0ff'),
+        emissiveIntensity: 0.45,
+      });
+    } else if (col.type === 'obstacle') {
+      mat = new THREE.MeshStandardMaterial({
+        color: '#ef4444',
+        roughness: 0.4,
+        metalness: 0.1,
+      });
+    } else if (col.type === 'checkpoint') {
+      // Glowing 3D Emerald Checkpoint Gate Arch
+      const cpGroup = new THREE.Group();
+      cpGroup.position.set(col.x, col.y, col.z);
+
+      const pillarMat = new THREE.MeshBasicMaterial({ color: '#10b981' });
+      const glowMat = new THREE.MeshBasicMaterial({ color: '#34d399', transparent: true, opacity: 0.35 });
+
+      // Left & Right Gate Pylons
+      const pylonGeo = new THREE.BoxGeometry(0.5, col.height, 0.5);
+      const pL = new THREE.Mesh(pylonGeo, pillarMat);
+      pL.position.x = -col.width / 2;
+      const pR = new THREE.Mesh(pylonGeo, pillarMat);
+      pR.position.x = col.width / 2;
+      cpGroup.add(pL, pR);
+
+      // Top Arch Crossbar
+      const archGeo = new THREE.BoxGeometry(col.width + 0.5, 0.5, 0.5);
+      const archTop = new THREE.Mesh(archGeo, pillarMat);
+      archTop.position.y = col.height / 2;
+      cpGroup.add(archTop);
+
+      // Holographic pass-through barrier
+      const barrierGeo = new THREE.BoxGeometry(col.width, col.height * 0.9, 0.05);
+      const barrier = new THREE.Mesh(barrierGeo, glowMat);
+      cpGroup.add(barrier);
+
+      // Floating Diamond Waypoint Marker
+      const diamondGeo = new THREE.OctahedronGeometry(0.5, 0);
+      const diamond = new THREE.Mesh(diamondGeo, pillarMat);
+      diamond.position.y = col.height * 0.15;
+      cpGroup.add(diamond);
+
+      this.scene.add(cpGroup);
+      this.levelMeshes.set(col.id, cpGroup);
+      return;
+    } else if (col.type === 'finish') {
+      mat = new THREE.MeshBasicMaterial({ color: '#00f0ff', wireframe: true });
+    } else {
+      // Sleek Dark Graphite Platform Surface
+      mat = new THREE.MeshStandardMaterial({
+        color: col.color || '#262938',
+        roughness: 0.45,
+        metalness: 0.12,
+      });
+    }
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(col.x, col.y, col.z);
+
+    if (col.type !== 'finish') {
+      mesh.receiveShadow = !this.isSoftwareGl;
+      mesh.castShadow = !this.isSoftwareGl;
+
+      if (col.type === 'bounce') {
+        // Concentric electric cyan ripple rings on bounce pads (Exactly matching screenshot!)
+        const rippleGroup = new THREE.Group();
+        rippleGroup.position.set(0, col.height / 2 + 0.015, 0);
+        rippleGroup.rotation.x = -Math.PI / 2;
+        const rippleMat = new THREE.MeshBasicMaterial({ color: '#00f0ff', transparent: true, opacity: 0.95 });
+        for (let r = 1; r <= 3; r++) {
+          const ring = new THREE.Mesh(new THREE.RingGeometry(r * 0.42, r * 0.42 + 0.09, 32), rippleMat);
+          ring.scale.set(1.35, 0.85, 1);
+          rippleGroup.add(ring);
+        }
+        mesh.add(rippleGroup);
+
+        // Vibrant cyan perimeter edge wire
+        const edgeGeo = new THREE.EdgesGeometry(geo);
+        const edgeMat = new THREE.LineBasicMaterial({
+          color: '#00f0ff',
+          transparent: true,
+          opacity: 0.9,
+        });
+        const wire = new THREE.LineSegments(edgeGeo, edgeMat);
+        mesh.add(wire);
+      } else if (col.type === 'ground' || col.type === 'wall') {
+        // Vibrant neon purple/magenta borders and beveled edge highlights (as in screenshot!)
+        const borderColor = col.type === 'wall' ? (col.color || '#f97316') : '#c026d3';
+        const edgeGeo = new THREE.EdgesGeometry(geo);
+        const edgeMat = new THREE.LineBasicMaterial({
+          color: borderColor,
+          transparent: true,
+          opacity: 0.95,
+        });
+        const wire = new THREE.LineSegments(edgeGeo, edgeMat);
+        mesh.add(wire);
+
+        if (col.type === 'ground') {
+          // Subtle etched cross (+) marking on top surface of each platform
+          const crossMat = new THREE.LineBasicMaterial({
+            color: '#7c3aed',
+            transparent: true,
+            opacity: 0.5,
+          });
+          const halfW = Math.min(col.width * 0.38, 2.8);
+          const halfD = Math.min(col.depth * 0.38, 2.8);
+          const crossPoints = [
+            new THREE.Vector3(-halfW, col.height / 2 + 0.012, 0),
+            new THREE.Vector3(halfW, col.height / 2 + 0.012, 0),
+            new THREE.Vector3(0, col.height / 2 + 0.012, -halfD),
+            new THREE.Vector3(0, col.height / 2 + 0.012, halfD),
+          ];
+          const crossGeo = new THREE.BufferGeometry().setFromPoints(crossPoints);
+          const crossMesh = new THREE.LineSegments(crossGeo, crossMat);
+          mesh.add(crossMesh);
+
+          // Glowing vertical corner bevel accents at the 4 corners of platform
+          const cornerGeo = new THREE.BoxGeometry(0.12, col.height + 0.04, 0.12);
+          const cornerMat = new THREE.MeshBasicMaterial({ color: '#e879f9' });
+          const cx = col.width / 2;
+          const cz = col.depth / 2;
+          const c1 = new THREE.Mesh(cornerGeo, cornerMat);
+          c1.position.set(-cx, 0, -cz);
+          const c2 = new THREE.Mesh(cornerGeo, cornerMat);
+          c2.position.set(cx, 0, -cz);
+          const c3 = new THREE.Mesh(cornerGeo, cornerMat);
+          c3.position.set(-cx, 0, cz);
+          const c4 = new THREE.Mesh(cornerGeo, cornerMat);
+          c4.position.set(cx, 0, cz);
+          mesh.add(c1, c2, c3, c4);
+        }
+      }
+    }
+
+    this.scene.add(mesh);
+    this.levelMeshes.set(col.id, mesh);
+
+    if (col.metadata?.moving || col.metadata?.rotating) {
+      this.movingMeshes.push({
+        id: col.id,
+        mesh,
+        collider: col,
+        origin: { x: col.x, y: col.y, z: col.z },
+      });
+    }
+  }
+
+  /**
+   * Dynamically append new colliders into active scene (for endless procedural streaming)
+   */
+  public appendColliders(newColliders: BoxCollider[]) {
+    for (const col of newColliders) {
+      this.addColliderMesh(col);
+    }
+  }
+
+  /**
+   * Remove and clean up culled colliders that have fallen far behind player
+   */
+  public removeColliders(colliderIds: string[]) {
+    const idSet = new Set(colliderIds);
+
+    for (const id of colliderIds) {
+      const mesh = this.levelMeshes.get(id);
+      if (mesh) {
+        this.scene.remove(mesh);
+        mesh.traverse((obj) => {
+          if (obj instanceof THREE.Mesh) {
+            obj.geometry?.dispose();
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach((m) => m.dispose());
+            } else if (obj.material) {
+              obj.material.dispose();
+            }
+          }
+        });
+        this.levelMeshes.delete(id);
+      }
+    }
+
+    this.movingMeshes = this.movingMeshes.filter((m) => !idSet.has(m.id));
+    this.trapInstances = this.trapInstances.filter((t) => !idSet.has(t.collider.id));
+  }
+
   /**
    * Build level 3D meshes from colliders
    */
@@ -205,503 +563,40 @@ export class ParkourRenderer {
     // Clear old meshes
     this.levelMeshes.forEach((mesh) => {
       this.scene.remove(mesh);
-      if (mesh instanceof THREE.Mesh) {
-        mesh.geometry.dispose();
-      }
+      mesh.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry?.dispose();
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((m) => m.dispose());
+          } else if (obj.material) {
+            obj.material.dispose();
+          }
+        }
+      });
     });
     this.levelMeshes.clear();
     this.movingMeshes = [];
+    this.trapInstances = [];
 
-    // Sky and fog color based on level theme
-    if (level.skyTheme === 'zenith') {
-      this.scene.background = new THREE.Color('#0369a1');
-      this.scene.fog = new THREE.FogExp2('#0369a1', 0.012);
-    } else if (level.skyTheme === 'sunset') {
-      this.scene.background = new THREE.Color('#431407');
-      this.scene.fog = new THREE.FogExp2('#431407', 0.011);
-    } else if (level.skyTheme === 'cyber') {
-      this.scene.background = new THREE.Color('#1e1b4b');
-      this.scene.fog = new THREE.FogExp2('#1e1b4b', 0.012);
-    } else if (level.skyTheme === 'emerald') {
-      this.scene.background = new THREE.Color('#064e3b');
-      this.scene.fog = new THREE.FogExp2('#064e3b', 0.012);
-    } else if (level.skyTheme === 'crimson') {
-      this.scene.background = new THREE.Color('#4c0519');
-      this.scene.fog = new THREE.FogExp2('#4c0519', 0.011);
-    } else if (level.skyTheme === 'midnight') {
-      this.scene.background = new THREE.Color('#020617');
-      this.scene.fog = new THREE.FogExp2('#020617', 0.013);
-    } else if (level.skyTheme === 'neon') {
-      this.scene.background = new THREE.Color('#172554');
-      this.scene.fog = new THREE.FogExp2('#172554', 0.012);
-    } else {
-      this.scene.background = new THREE.Color('#0f172a');
-      this.scene.fog = new THREE.FogExp2('#0f172a', 0.013);
-    }
-
-    // Shared materials for clean performance
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: '#f8fafc',
-      roughness: 0.5,
-      metalness: 0.05,
-    });
-    const wallRunMat = new THREE.MeshStandardMaterial({
-      color: '#f97316', // Orange wall run strip
-      roughness: 0.3,
-      metalness: 0.1,
-    });
-    const bounceMat = new THREE.MeshStandardMaterial({
-      color: '#ec4899', // Bright pink / orange bounce pad
-      roughness: 0.25,
-      metalness: 0.3,
-    });
-    const obstacleMat = new THREE.MeshStandardMaterial({
-      color: '#ef4444', // Red laser / bar
-      roughness: 0.4,
-      metalness: 0.1,
-    });
-    const hazardLaserMat = new THREE.MeshBasicMaterial({
-      color: '#ff003b',
-    });
-    const hazardLaserGlowMat = new THREE.MeshBasicMaterial({
-      color: '#ff4d6d',
-      transparent: true,
-      opacity: 0.45,
-    });
-    const hazardSpikeMat = new THREE.MeshStandardMaterial({
-      color: '#dc2626',
-      roughness: 0.25,
-      metalness: 0.8,
-    });
-    const hazardSawMat = new THREE.MeshStandardMaterial({
-      color: '#e11d48',
-      roughness: 0.2,
-      metalness: 0.85,
-    });
-    const hazardPylonMat = new THREE.MeshStandardMaterial({
-      color: '#0f172a',
-      roughness: 0.5,
-      metalness: 0.6,
-    });
-    const hazardHammerMat = new THREE.MeshStandardMaterial({
-      color: '#f59e0b', // High-visibility caution amber
-      roughness: 0.35,
-      metalness: 0.6,
-    });
-    const hazardSteelMat = new THREE.MeshStandardMaterial({
-      color: '#334155',
-      roughness: 0.25,
-      metalness: 0.85,
-    });
-    const hazardFireMat = new THREE.MeshBasicMaterial({
-      color: '#ff4500', // Roaring fiery orange
-    });
-    const hazardFireGlowMat = new THREE.MeshBasicMaterial({
-      color: '#fbbf24', // Yellow flame glow
-      transparent: true,
-      opacity: 0.55,
-    });
-    const hazardShockMat = new THREE.MeshBasicMaterial({
-      color: '#38bdf8', // Electric arc cyan
-    });
-    const hazardShockCoreMat = new THREE.MeshBasicMaterial({
-      color: '#c084fc', // High voltage purple
-      transparent: true,
-      opacity: 0.7,
-    });
-
-    const hazardAcidMat = new THREE.MeshStandardMaterial({
-      color: '#84cc16',
-      roughness: 0.2,
-      metalness: 0.2,
-    });
-    const hazardAcidGlowMat = new THREE.MeshBasicMaterial({
-      color: '#a3e635',
-      transparent: true,
-      opacity: 0.7,
-    });
-    const hazardIceMat = new THREE.MeshStandardMaterial({
-      color: '#38bdf8',
-      roughness: 0.1,
-      metalness: 0.3,
-    });
-    const hazardIceGlowMat = new THREE.MeshBasicMaterial({
-      color: '#e0f2fe',
-      transparent: true,
-      opacity: 0.65,
-    });
-    const hazardPurpleMat = new THREE.MeshBasicMaterial({
-      color: '#a855f7',
-    });
-    const hazardPurpleGlowMat = new THREE.MeshBasicMaterial({
-      color: '#c084fc',
-      transparent: true,
-      opacity: 0.6,
-    });
-    const hazardDarkMat = new THREE.MeshStandardMaterial({
-      color: '#1e293b',
-      roughness: 0.4,
-      metalness: 0.8,
-    });
+    // Sky, fog and dynamic biome lighting based on level theme
+    this.setSkyTheme(level.skyTheme);
 
     level.colliders.forEach((col) => {
-      // 1. Specialized 3D Visuals for Lethal Hazard Traps
-      if (col.type === 'hazard') {
-        const hazardGroup = new THREE.Group();
-        hazardGroup.position.set(col.x, col.y, col.z);
-
-        const hType = col.metadata?.hazardType || 'spikes';
-
-        if (hType === 'spikes' || hType === 'ice_spikes' || hType === 'spike_popups' || hType === 'falling_stalactite') {
-          // Sharp danger spikes (cones)
-          const baseHeight = Math.min(0.15, col.height * 0.2);
-          const baseGeo = new THREE.BoxGeometry(col.width, baseHeight, col.depth);
-          const baseMesh = new THREE.Mesh(baseGeo, hazardPylonMat);
-          baseMesh.position.y = -col.height / 2 + baseHeight / 2;
-          hazardGroup.add(baseMesh);
-
-          const spikeH = col.height - baseHeight;
-          const spikeRadius = Math.min(0.25, Math.min(col.width, col.depth) * 0.25);
-          const spikeGeo = new THREE.ConeGeometry(spikeRadius, spikeH, 4);
-          const matToUse = hType === 'ice_spikes' ? hazardIceMat : hazardSpikeMat;
-
-          const stepX = Math.max(0.6, col.width / Math.max(1, Math.round(col.width / 0.8)));
-          const stepZ = Math.max(0.6, col.depth / Math.max(1, Math.round(col.depth / 0.8)));
-
-          for (let sx = -col.width / 2 + stepX / 2; sx <= col.width / 2; sx += stepX) {
-            for (let sz = -col.depth / 2 + stepZ / 2; sz <= col.depth / 2; sz += stepZ) {
-              const spikeMesh = new THREE.Mesh(spikeGeo, matToUse);
-              spikeMesh.position.set(sx, -col.height / 2 + baseHeight + spikeH / 2, sz);
-              spikeMesh.castShadow = !this.isSoftwareGl;
-              hazardGroup.add(spikeMesh);
-            }
-          }
-        } else if (
-          hType === 'laser' ||
-          hType === 'laser_grid' ||
-          hType === 'plasma_beam' ||
-          hType === 'freezing_beam' ||
-          hType === 'energy_whip'
-        ) {
-          // Glowing laser beam core + outer glow sheath
-          const beamGeo = new THREE.BoxGeometry(col.width, col.height * 0.6, col.depth * 0.6);
-          const beamMesh = new THREE.Mesh(beamGeo, hType === 'freezing_beam' ? hazardIceGlowMat : hazardLaserMat);
-          hazardGroup.add(beamMesh);
-
-          const glowGeo = new THREE.BoxGeometry(col.width * 1.02, col.height, col.depth);
-          const glowMesh = new THREE.Mesh(glowGeo, hType === 'freezing_beam' ? hazardIceMat : hazardLaserGlowMat);
-          hazardGroup.add(glowMesh);
-
-          // Pylons
-          const pylonW = Math.max(0.3, col.width * 0.08);
-          const pylonH = col.height * 2.2;
-          const pylonGeo = new THREE.BoxGeometry(pylonW, pylonH, col.depth * 1.8);
-
-          const pylonL = new THREE.Mesh(pylonGeo, hazardPylonMat);
-          pylonL.position.x = -col.width / 2;
-          const pylonR = new THREE.Mesh(pylonGeo, hazardPylonMat);
-          pylonR.position.x = col.width / 2;
-          hazardGroup.add(pylonL, pylonR);
-        } else if (hType === 'saw' || hType === 'blade_fan' || hType === 'vortex_blade') {
-          // High-speed rotating hazard saw blade
-          const sawRadius = Math.max(col.width, col.height) / 2;
-          const sawGeo = new THREE.CylinderGeometry(sawRadius, sawRadius, 0.08, 16);
-          const sawMesh = new THREE.Mesh(sawGeo, hazardSawMat);
-          sawMesh.rotation.x = Math.PI / 2;
-          hazardGroup.add(sawMesh);
-
-          const hubGeo = new THREE.CylinderGeometry(sawRadius * 0.35, sawRadius * 0.35, 0.12, 12);
-          const hubMesh = new THREE.Mesh(hubGeo, hazardPylonMat);
-          hubMesh.rotation.x = Math.PI / 2;
-          hazardGroup.add(hubMesh);
-        } else if (hType === 'hammer' || hType === 'guillotine' || hType === 'crusher_jaws' || hType === 'twin_crushers' || hType === 'spike_wall_slam') {
-          // Heavy Hydraulic Crusher Hammer / Guillotine
-          const headGeo = new THREE.BoxGeometry(col.width, col.height, col.depth);
-          const headMesh = new THREE.Mesh(headGeo, hazardHammerMat);
-          hazardGroup.add(headMesh);
-
-          const shaftH = col.height * 1.8;
-          const shaftGeo = new THREE.CylinderGeometry(0.2, 0.2, shaftH, 10);
-          const shaftMesh = new THREE.Mesh(shaftGeo, hazardSteelMat);
-          shaftMesh.position.y = col.height / 2 + shaftH / 2;
-          hazardGroup.add(shaftMesh);
-
-          const faceGeo = new THREE.BoxGeometry(col.width * 0.85, col.height * 0.85, col.depth + 0.02);
-          const faceMesh = new THREE.Mesh(faceGeo, hazardPylonMat);
-          hazardGroup.add(faceMesh);
-        } else if (hType === 'flamethrower' || hType === 'lava_geyser' || hType === 'fire_ring' || hType === 'solar_flare_vent') {
-          // Industrial Burner Base Nozzle
-          const nozzleH = Math.min(0.3, col.height * 0.25);
-          const nozzleGeo = new THREE.CylinderGeometry(col.width * 0.45, col.width * 0.55, nozzleH, 12);
-          const nozzleMesh = new THREE.Mesh(nozzleGeo, hazardSteelMat);
-          nozzleMesh.position.y = -col.height / 2 + nozzleH / 2;
-          hazardGroup.add(nozzleMesh);
-
-          const flameH = col.height - nozzleH;
-          const flameGeo = new THREE.ConeGeometry(col.width * 0.42, flameH, 8);
-          const flameMesh = new THREE.Mesh(flameGeo, hazardFireMat);
-          flameMesh.position.y = -col.height / 2 + nozzleH + flameH / 2;
-          hazardGroup.add(flameMesh);
-
-          const glowGeo = new THREE.ConeGeometry(col.width * 0.52, flameH * 1.05, 8);
-          const glowMesh = new THREE.Mesh(glowGeo, hazardFireGlowMat);
-          glowMesh.position.copy(flameMesh.position);
-          hazardGroup.add(glowMesh);
-        } else if (hType === 'roller_spikes' || hType === 'shredder_drums' || hType === 'drill_column') {
-          // Horizontal Cylindrical Spiked Roller
-          const rRadius = Math.min(col.width, col.height) * 0.4;
-          const rLength = Math.max(col.width, col.depth);
-          const cylinderGeo = new THREE.CylinderGeometry(rRadius, rRadius, rLength, 12);
-          const cylinderMesh = new THREE.Mesh(cylinderGeo, hazardSteelMat);
-          cylinderMesh.rotation.z = Math.PI / 2;
-          hazardGroup.add(cylinderMesh);
-
-          const ringCount = Math.max(3, Math.round(rLength / 1.2));
-          const spikeH = rRadius * 0.8;
-          const spikeRadius = 0.12;
-          const spikeGeo = new THREE.ConeGeometry(spikeRadius, spikeH, 4);
-
-          for (let r = 0; r < ringCount; r++) {
-            const zPos = -rLength / 2 + (rLength / (ringCount + 1)) * (r + 1);
-            for (let a = 0; a < 4; a++) {
-              const angle = (a * Math.PI) / 2 + (r % 2 === 0 ? 0 : Math.PI / 4);
-              const spMesh = new THREE.Mesh(spikeGeo, hazardSpikeMat);
-              spMesh.position.set(
-                Math.sin(angle) * (rRadius + spikeH / 2),
-                Math.cos(angle) * (rRadius + spikeH / 2),
-                zPos
-              );
-              spMesh.rotation.z = -angle;
-              hazardGroup.add(spMesh);
-            }
-          }
-        } else if (hType === 'laser_sweeper') {
-          // Central Rotating Emitter Tower
-          const towerGeo = new THREE.CylinderGeometry(0.35, 0.45, col.height * 1.5, 12);
-          const towerMesh = new THREE.Mesh(towerGeo, hazardSteelMat);
-          hazardGroup.add(towerMesh);
-
-          const armLen = col.width / 2;
-          const armGeo = new THREE.BoxGeometry(armLen, 0.22, 0.22);
-          const armL = new THREE.Mesh(armGeo, hazardLaserMat);
-          armL.position.x = armLen / 2;
-          const armR = new THREE.Mesh(armGeo, hazardLaserMat);
-          armR.position.x = -armLen / 2;
-          hazardGroup.add(armL, armR);
-
-          const armGlowGeo = new THREE.BoxGeometry(col.width, 0.35, 0.35);
-          const armGlow = new THREE.Mesh(armGlowGeo, hazardLaserGlowMat);
-          hazardGroup.add(armGlow);
-        } else if (hType === 'shock_grid' || hType === 'shock' || hType === 'electric_fence') {
-          // High-Voltage Electrified Floor Grid
-          const baseGeo = new THREE.BoxGeometry(col.width, 0.12, col.depth);
-          const baseMesh = new THREE.Mesh(baseGeo, hazardPylonMat);
-          baseMesh.position.y = -col.height / 2 + 0.06;
-          hazardGroup.add(baseMesh);
-
-          const gridGeo = new THREE.BoxGeometry(col.width * 0.95, 0.16, col.depth * 0.95);
-          const gridMesh = new THREE.Mesh(gridGeo, hazardShockMat);
-          gridMesh.position.y = -col.height / 2 + 0.12;
-          hazardGroup.add(gridMesh);
-
-          const coreGeo = new THREE.BoxGeometry(col.width * 0.9, 0.2, col.depth * 0.9);
-          const coreMesh = new THREE.Mesh(coreGeo, hazardShockCoreMat);
-          coreMesh.position.copy(gridMesh.position);
-          hazardGroup.add(coreMesh);
-        } else if (hType === 'pendulum_spikeball' || hType === 'spinning_axes' || hType === 'bladed_pendulum') {
-          // Overhead Pivot & Suspension Rod
-          const ballRadius = Math.min(col.width, col.height) * 0.45;
-          const ballGeo = new THREE.SphereGeometry(ballRadius, 12, 10);
-          const ballMesh = new THREE.Mesh(ballGeo, hazardSteelMat);
-          hazardGroup.add(ballMesh);
-
-          const spikeH = ballRadius * 0.65;
-          const spikeGeo = new THREE.ConeGeometry(0.14, spikeH, 4);
-          for (let p = 0; p < 8; p++) {
-            const theta = (p * Math.PI) / 4;
-            const sp = new THREE.Mesh(spikeGeo, hazardSpikeMat);
-            sp.position.set(Math.sin(theta) * (ballRadius + spikeH / 2), Math.cos(theta) * (ballRadius + spikeH / 2), 0);
-            sp.rotation.z = -theta;
-            hazardGroup.add(sp);
-          }
-
-          const cableGeo = new THREE.CylinderGeometry(0.04, 0.04, col.height * 2.5, 6);
-          const cableMesh = new THREE.Mesh(cableGeo, hazardSteelMat);
-          cableMesh.position.y = ballRadius + col.height * 1.25;
-          hazardGroup.add(cableMesh);
-        } else if (hType === 'tesla_coil' || hType === 'electro_arc' || hType === 'plasma_orb' || hType === 'ion_discharger') {
-          // Tesla Coil & Plasma Lightning Tower
-          const coilH = col.height * 0.8;
-          const poleGeo = new THREE.CylinderGeometry(0.3, 0.45, coilH, 12);
-          const poleMesh = new THREE.Mesh(poleGeo, hazardDarkMat);
-          hazardGroup.add(poleMesh);
-
-          const ringGeo = new THREE.TorusGeometry(0.7, 0.12, 8, 16);
-          const ringMesh = new THREE.Mesh(ringGeo, hazardHammerMat);
-          ringMesh.rotation.x = Math.PI / 2;
-          ringMesh.position.y = coilH * 0.25;
-          hazardGroup.add(ringMesh);
-
-          const orbGeo = new THREE.SphereGeometry(0.55, 12, 12);
-          const orbMesh = new THREE.Mesh(orbGeo, hazardPurpleMat);
-          orbMesh.position.y = coilH / 2 + 0.35;
-          hazardGroup.add(orbMesh);
-
-          const glowGeo = new THREE.SphereGeometry(0.8, 12, 12);
-          const glowMesh = new THREE.Mesh(glowGeo, hazardPurpleGlowMat);
-          glowMesh.position.copy(orbMesh.position);
-          hazardGroup.add(glowMesh);
-        } else if (hType === 'acid_pool' || hType === 'toxic_gas_jet' || hType === 'caustic_drip' || hType === 'steam_vent') {
-          // Corrosive Acid Vat Pool
-          const vatGeo = new THREE.BoxGeometry(col.width, 0.25, col.depth);
-          const vatMesh = new THREE.Mesh(vatGeo, hazardDarkMat);
-          hazardGroup.add(vatMesh);
-
-          const fluidGeo = new THREE.BoxGeometry(col.width * 0.92, 0.3, col.depth * 0.92);
-          const fluidMesh = new THREE.Mesh(fluidGeo, hazardAcidMat);
-          hazardGroup.add(fluidMesh);
-
-          const glowGeo = new THREE.BoxGeometry(col.width * 0.88, 0.35, col.depth * 0.88);
-          const glowMesh = new THREE.Mesh(glowGeo, hazardAcidGlowMat);
-          hazardGroup.add(glowMesh);
-        } else if (hType === 'gravity_well' || hType === 'antimatter_rift' || hType === 'quantum_barrier') {
-          // Gravitational Singularity Core
-          const coreGeo = new THREE.SphereGeometry(Math.min(col.width, col.height) * 0.4, 16, 16);
-          const coreMesh = new THREE.Mesh(coreGeo, hazardDarkMat);
-          hazardGroup.add(coreMesh);
-
-          const ringGeo = new THREE.TorusGeometry(col.width * 0.45, 0.15, 8, 20);
-          const ringMesh = new THREE.Mesh(ringGeo, hazardPurpleGlowMat);
-          ringMesh.rotation.x = Math.PI / 2;
-          hazardGroup.add(ringMesh);
-        } else if (
-          hType === 'proximity_mine' ||
-          hType === 'sonic_emitter' ||
-          hType === 'pulse_cannon' ||
-          hType === 'hyper_core_meltdown' ||
-          hType === 'meteor_strike'
-        ) {
-          // Tactical Mine / Sonic Turret
-          const baseGeo = new THREE.CylinderGeometry(col.width * 0.4, col.width * 0.5, 0.25, 12);
-          const baseMesh = new THREE.Mesh(baseGeo, hazardSteelMat);
-          hazardGroup.add(baseMesh);
-
-          const domeGeo = new THREE.SphereGeometry(col.width * 0.3, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-          const domeMesh = new THREE.Mesh(domeGeo, hazardLaserMat);
-          domeMesh.position.y = 0.12;
-          hazardGroup.add(domeMesh);
-        } else {
-          // Fallback lethal hazard block
-          const boxGeo = new THREE.BoxGeometry(col.width, col.height, col.depth);
-          const boxMesh = new THREE.Mesh(boxGeo, hazardLaserMat);
-          hazardGroup.add(boxMesh);
-        }
-
-        this.scene.add(hazardGroup);
-        this.levelMeshes.set(col.id, hazardGroup);
-
-        if (col.metadata?.moving || col.metadata?.rotating) {
-          this.movingMeshes.push({
-            id: col.id,
-            mesh: hazardGroup,
-            collider: col,
-            origin: { x: col.x, y: col.y, z: col.z },
-          });
-        }
-        return;
-      }
-
-      const geo = new THREE.BoxGeometry(col.width, col.height, col.depth);
-
-      let mat: THREE.Material;
-      if (col.type === 'bounce') {
-        mat = bounceMat;
-      } else if (col.type === 'wall' && col.color === '#f97316') {
-        mat = wallRunMat;
-      } else if (col.type === 'obstacle') {
-        mat = obstacleMat;
-      } else if (col.type === 'checkpoint') {
-        // Glowing 3D Emerald Checkpoint Gate Arch
-        const cpGroup = new THREE.Group();
-        cpGroup.position.set(col.x, col.y, col.z);
-
-        const pillarMat = new THREE.MeshBasicMaterial({ color: '#10b981' });
-        const glowMat = new THREE.MeshBasicMaterial({ color: '#34d399', transparent: true, opacity: 0.35 });
-
-        // Left & Right Gate Pylons
-        const pylonGeo = new THREE.BoxGeometry(0.5, col.height, 0.5);
-        const pL = new THREE.Mesh(pylonGeo, pillarMat);
-        pL.position.x = -col.width / 2;
-        const pR = new THREE.Mesh(pylonGeo, pillarMat);
-        pR.position.x = col.width / 2;
-        cpGroup.add(pL, pR);
-
-        // Top Arch Crossbar
-        const archGeo = new THREE.BoxGeometry(col.width + 0.5, 0.5, 0.5);
-        const archTop = new THREE.Mesh(archGeo, pillarMat);
-        archTop.position.y = col.height / 2;
-        cpGroup.add(archTop);
-
-        // Holographic pass-through barrier
-        const barrierGeo = new THREE.BoxGeometry(col.width, col.height * 0.9, 0.05);
-        const barrier = new THREE.Mesh(barrierGeo, glowMat);
-        cpGroup.add(barrier);
-
-        // Floating Diamond Waypoint Marker
-        const diamondGeo = new THREE.OctahedronGeometry(0.5, 0);
-        const diamond = new THREE.Mesh(diamondGeo, pillarMat);
-        diamond.position.y = col.height * 0.15;
-        cpGroup.add(diamond);
-
-        this.scene.add(cpGroup);
-        this.levelMeshes.set(col.id, cpGroup);
-        return;
-      } else if (col.type === 'finish') {
-        // Grand finish portal
-        mat = new THREE.MeshBasicMaterial({ color: '#06b6d4', wireframe: true });
-      } else {
-        mat = col.color
-          ? new THREE.MeshStandardMaterial({ color: col.color, roughness: 0.45, metalness: 0.05 })
-          : groundMat;
-      }
-
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(col.x, col.y, col.z);
-      if (col.type !== 'finish') {
-        mesh.receiveShadow = !this.isSoftwareGl;
-        mesh.castShadow = !this.isSoftwareGl;
-
-        // Subtle architectural edge accent for minimalist depth
-        if (col.type === 'ground' || col.type === 'wall') {
-          const edgeGeo = new THREE.EdgesGeometry(geo);
-          const edgeMat = new THREE.LineBasicMaterial({
-            color: col.type === 'wall' && col.color === '#f97316' ? '#fdba74' : '#64748b',
-            transparent: true,
-            opacity: 0.35,
-          });
-          const wire = new THREE.LineSegments(edgeGeo, edgeMat);
-          mesh.add(wire);
-        }
-      }
-
-      this.scene.add(mesh);
-      this.levelMeshes.set(col.id, mesh);
-
-      if (col.metadata?.moving || col.metadata?.rotating) {
-        this.movingMeshes.push({
-          id: col.id,
-          mesh,
-          collider: col,
-          origin: { x: col.x, y: col.y, z: col.z },
-        });
-      }
+      this.addColliderMesh(col);
     });
   }
 
   /**
-   * Updates animated level elements like moving platforms and rotating hazard traps
+   * Updates animated level elements like moving platforms, rotating hazard traps,
+   * high-speed serrated saw blades, hydraulic hammers, and electrical arcs
    */
-  public updateAnimatedPlatforms(time: number) {
+  public updateAnimatedPlatforms(time: number, dt: number = 0.016) {
+    // 1. Update realistic mechanical traps (sparks, hydraulic pistons, saw spins, laser flicker)
+    for (let i = 0; i < this.trapInstances.length; i++) {
+      updateRealisticTrap(this.trapInstances[i], time, dt);
+    }
+
+    // 2. Update regular moving platforms
     this.movingMeshes.forEach((item) => {
       const mov = item.collider.metadata?.moving;
       if (mov) {
@@ -720,7 +615,7 @@ export class ParkourRenderer {
 
       const rot = item.collider.metadata?.rotating;
       if (rot) {
-        item.mesh.rotation[rot.axis] += rot.speed * 0.016;
+        item.mesh.rotation[rot.axis] += rot.speed * dt;
       }
     });
   }

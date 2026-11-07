@@ -25,6 +25,14 @@ interface HUDProps {
   maxJumps: number;
   isMuted: boolean;
   selectedCharacterId: CharacterId;
+  gameMode?: 'levels' | 'endless';
+  endlessDistance?: number;
+  endlessScore?: number;
+  endlessMultiplier?: number;
+  endlessBestDistance?: number;
+  endlessBiomeName?: string;
+  endlessBiomeColor?: string;
+  isAutoRunning?: boolean;
   onSelectCharacter: (id: CharacterId) => void;
   onToggleCamera: () => void;
   onToggleMouseControlMode: () => void;
@@ -50,6 +58,14 @@ export const HUD: React.FC<HUDProps> = ({
   isPointerLocked,
   isMuted,
   selectedCharacterId,
+  gameMode = 'levels',
+  endlessDistance = 0,
+  endlessScore = 0,
+  endlessMultiplier = 1,
+  endlessBestDistance = 0,
+  endlessBiomeName = 'Bình Minh',
+  endlessBiomeColor = '#f97316',
+  isAutoRunning = false,
   onSelectCharacter,
   onToggleCamera,
   onToggleMouseControlMode,
@@ -85,31 +101,86 @@ export const HUD: React.FC<HUDProps> = ({
     <div className="fixed inset-0 pointer-events-none select-none text-slate-100 font-sans z-20 flex flex-col justify-between p-6">
       {/* Top row: Left Info & Right Utilities */}
       <div className="flex justify-between items-start w-full gap-2">
-        {/* Left: Speedometer & Level Header */}
-        <div className="flex flex-col gap-1 bg-slate-950/85 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-lg max-w-[200px] sm:max-w-xs">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] sm:text-xs uppercase tracking-wider text-slate-300 font-mono font-bold truncate">
-              {currentLevel.name}
-            </span>
-            <span className="text-[10px] sm:text-xs font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shrink-0">
-              MÀN {currentLevel.id}
-            </span>
-          </div>
+        {/* Left: Speedometer & Level / Endless Header */}
+        <div className="flex flex-col gap-1 bg-slate-950/85 border border-slate-800 rounded-lg p-2.5 sm:p-3.5 shadow-lg min-w-[190px] max-w-[240px] sm:max-w-xs">
+          {gameMode === 'endless' ? (
+            <>
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] sm:text-xs uppercase tracking-wider text-amber-400 font-mono font-black flex items-center gap-1">
+                  <span>⚡ CHẠY VÔ TẬN</span>
+                  <span className="text-[10px] text-amber-300/80">∞</span>
+                </span>
+                <span
+                  className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.2 rounded font-bold uppercase truncate"
+                  style={{
+                    backgroundColor: `${endlessBiomeColor}25`,
+                    color: endlessBiomeColor,
+                    borderColor: `${endlessBiomeColor}50`,
+                    borderWidth: 1,
+                  }}
+                >
+                  {endlessBiomeName}
+                </span>
+              </div>
 
-          <div className="flex items-baseline gap-1.5 mt-0.5">
+              {/* Distance Readout */}
+              <div className="flex items-baseline justify-between mt-0.5">
+                <div className="flex items-baseline gap-1">
+                  <span
+                    className="text-2xl sm:text-3xl font-extrabold tracking-tight font-mono text-amber-400 tabular-nums"
+                    style={{ textShadow: '0 0 10px rgba(251,191,36,0.35)' }}
+                  >
+                    {endlessDistance}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-amber-300 font-mono uppercase">MÉT</span>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400">
+                  KỶ LỤC: <span className="text-slate-200 font-bold">{endlessBestDistance}m</span>
+                </div>
+              </div>
+
+              {/* Score & Combo */}
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-mono text-slate-300 border-t border-slate-800/80 pt-1">
+                <span>ĐIỂM: <strong className="text-cyan-400">{endlessScore.toLocaleString()}</strong></span>
+                {endlessMultiplier > 1 && (
+                  <span className="px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 font-bold animate-pulse">
+                    {endlessMultiplier.toFixed(1)}x COMBO
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] sm:text-xs uppercase tracking-wider text-slate-300 font-mono font-bold truncate">
+                  {currentLevel.name}
+                </span>
+                <span className="text-[10px] sm:text-xs font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shrink-0">
+                  MÀN {currentLevel.id}
+                </span>
+              </div>
+
+              {currentLevel.archetypeLabel && (
+                <div className="flex items-center">
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-medium truncate">
+                    {currentLevel.archetypeLabel}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="flex items-baseline gap-1.5 mt-0.5 border-t border-slate-800/80 pt-1">
             <span
-              className="text-3xl sm:text-4xl font-extrabold tracking-tight font-mono text-cyan-400 tabular-nums"
+              className="text-2xl sm:text-3xl font-extrabold tracking-tight font-mono text-cyan-400 tabular-nums"
               style={{ textShadow: '0 0 12px rgba(6,182,212,0.4)' }}
             >
               {kmh}
             </span>
             <span className="text-[10px] sm:text-xs text-slate-400 font-mono uppercase">KM/H</span>
-          </div>
-
-          {/* Time readout */}
-          <div className="flex items-center justify-between text-[11px] sm:text-xs font-mono pt-1 border-t border-slate-800/80 text-slate-300">
-            <span>THỜI GIAN:</span>
-            <span className="font-bold text-slate-100 tabular-nums">{formatGameTime(elapsedTime)}</span>
+            <div className="ml-auto text-[11px] sm:text-xs font-mono text-slate-300 tabular-nums">
+              {formatGameTime(elapsedTime)}
+            </div>
           </div>
         </div>
 
@@ -255,44 +326,39 @@ export const HUD: React.FC<HUDProps> = ({
         )}
       </div>
 
-      {/* Bottom Center: Dash Meter & Flat Control Hints */}
-      <div className="flex flex-col items-center gap-3 w-full pb-2">
-        {/* Dash charges bar */}
-        <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 px-4 py-2 rounded-full shadow-lg">
-          <span className="text-[11px] font-mono uppercase text-slate-400 font-semibold">LƯỚT [E/CHUỘT PHẢI]</span>
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: maxDashCharges }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-7 h-2 rounded-sm transition-all duration-150 ${
-                  i < dashCharges
-                    ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]'
-                    : 'bg-slate-800 border border-slate-700'
-                }`}
-              />
-            ))}
+      {/* Bottom Center: Matching Reference Screenshot Dual Pill Layout */}
+      <div className="flex flex-col items-center gap-2 w-full pb-2 pointer-events-auto">
+        {/* Pill 1: AIR DASH Meter */}
+        <div className="flex items-center gap-3 bg-slate-950/85 backdrop-blur-md border border-slate-700/60 px-5 py-1.5 rounded-full shadow-2xl">
+          <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-slate-100 uppercase tracking-wider">
+            <span className="text-cyan-400">⚡</span>
+            <span>AIR DASH:</span>
           </div>
-          {dashCooldownProgress > 0 && dashCharges < maxDashCharges && (
-            <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-cyan-500 transition-all duration-75"
-                style={{ width: `${Math.round(dashCooldownProgress * 100)}%` }}
-              />
-            </div>
-          )}
 
-          {/* Separator */}
-          <div className="w-px h-3.5 bg-slate-800" />
+          {/* Dash Progress Bar */}
+          <div className="w-28 sm:w-36 h-2.5 bg-slate-900 border border-slate-700/80 rounded-full overflow-hidden p-0.5 flex items-center">
+            <div
+              className={`h-full rounded-full transition-all duration-100 ${
+                dashCharges > 0
+                  ? 'bg-gradient-to-r from-cyan-400 to-sky-300 shadow-[0_0_8px_rgba(0,240,255,0.8)]'
+                  : 'bg-cyan-600'
+              }`}
+              style={{ width: dashCharges > 0 ? '100%' : `${Math.round(dashCooldownProgress * 100)}%` }}
+            />
+          </div>
+
+          <span className="text-[10px] sm:text-xs font-mono text-slate-300 uppercase tracking-wide font-semibold">
+            {dashCharges > 0 ? 'HỒI TRÊN ĐẤT' : 'ĐANG HỒI...'}
+          </span>
 
           {/* Double Jump Pips */}
-          <span className="text-[11px] font-mono uppercase text-slate-400 font-semibold pl-1">NHẢY (2X)</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 pl-2 border-l border-slate-800">
             {Array.from({ length: maxJumps }).map((_, i) => (
               <div
                 key={i}
-                className={`w-4 h-4 rounded-full border text-[10px] font-mono font-black flex items-center justify-center transition-all ${
+                className={`w-3.5 h-3.5 rounded-full border text-[9px] font-mono font-black flex items-center justify-center transition-all ${
                   i < jumpsRemaining
-                    ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-[0_0_8px_rgba(251,191,36,0.9)] scale-105'
+                    ? 'bg-amber-400 border-amber-300 text-slate-950 shadow-[0_0_6px_rgba(251,191,36,0.9)] scale-105'
                     : 'bg-slate-900 border-slate-800 text-slate-600'
                 }`}
               >
@@ -302,16 +368,20 @@ export const HUD: React.FC<HUDProps> = ({
           </div>
         </div>
 
-        {/* Flat borderless control bar */}
-        <div className="hidden sm:block text-[11px] font-mono text-slate-300 tracking-wide text-center bg-slate-950/70 border border-slate-800/80 px-4 py-1.5 rounded-full shadow">
-          <span className="text-cyan-400 font-bold">MŨI TÊN CHUỘT</span> Định hướng ·{' '}
-          <span className="text-white font-bold">GIỮ CHUỘT TRÁI / W</span> Đi tới ·{' '}
-          <span className="text-amber-400 font-bold">SPACE</span> Nhảy x2 (Nhảy đà + Nhảy kép) ·{' '}
-          <span className="text-slate-300 font-semibold">SHIFT</span> Bứt tốc ·{' '}
-          <span className="text-slate-300 font-semibold">C</span> Trượt ·{' '}
-          <span className="text-slate-300 font-semibold">CHUỘT PHẢI / E</span> Lướt ·{' '}
-          <span className="text-slate-400">ESC Tạm dừng</span>
+        {/* Pill 2: Mouse Direction & Control hint matching screenshot */}
+        <div className="hidden sm:flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-slate-300 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-4 py-1 rounded-full shadow-lg text-center max-w-3xl">
+          <span className="text-cyan-400 font-bold flex items-center gap-1 shrink-0">
+            <span>↖ Hướng Chuột:</span>
+          </span>
+          <span className="text-slate-300 truncate">
+            Nhân vật tự động quay & chạy theo mũi tên chuột 3D · Giữ <strong className="text-white">Chuột Trái</strong> hoặc bật{' '}
+            <strong className={isAutoRunning ? 'text-emerald-400 underline font-black' : 'text-cyan-300'}>
+              Tự Động [Q]
+            </strong>{' '}
+            · <strong className="text-white">Chuột Phải</strong> Dash
+          </span>
         </div>
+      </div>
 
         {/* Mobile touch controls row */}
         <div className="flex sm:hidden items-center justify-between w-full px-2 pointer-events-auto">
@@ -366,6 +436,5 @@ export const HUD: React.FC<HUDProps> = ({
           </div>
         </div>
       </div>
-    </div>
   );
 };

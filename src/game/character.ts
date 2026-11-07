@@ -10,17 +10,17 @@ export const CHARACTER_PRESETS: Record<CharacterId, CharacterDefinition> = {
   kaito: {
     id: 'kaito',
     name: 'Kaito',
-    subtitle: 'Cậu Bé Parkour',
+    subtitle: 'Vận Động Viên Parkour Chân Thực',
     category: 'human',
-    badge: 'CON NGƯỜI / HUMAN',
-    description: 'Vận động viên parkour đường phố với áo hoodie đỏ-trắng năng động, mái tóc vuốt cá tính, găng tay thể thao và sneaker chạy bộ cao cấp.',
+    badge: 'CON NGƯỜI / ATHLETIC HUMAN',
+    description: 'Mô hình 3D người thật chân thực: giải phẫu cơ thể học chuẩn xác (vai cơ, ngực, bắp tay, đùi, bắp chân), khuôn mặt sống động, trang phục hoodie kỹ thuật cao và giày AcroKicks đệm khí.',
     colors: {
       primary: '#ef4444',
       secondary: '#ffffff',
       accent: '#0284c7',
-      skin: '#ffdfba',
-      hair: '#382216',
-      eyes: '#2563eb',
+      skin: '#f5c6a5',
+      hair: '#251610',
+      eyes: '#1e40af',
     },
   },
   kibo: {
@@ -58,17 +58,17 @@ export const CHARACTER_PRESETS: Record<CharacterId, CharacterDefinition> = {
   sparky: {
     id: 'sparky',
     name: 'Sparky',
-    subtitle: 'Robot Hoạt Hình Ngộ Nghĩnh',
+    subtitle: 'Phi Hành Gia Cyber 3D',
     category: 'cartoon',
-    badge: 'HOẠT HÌNH / TOON BOT',
-    description: 'Chú robot hoạt hình tròn trịa đáng yêu với màn hình mắt kỹ thuật số biểu cảm chớp nháy, ăng-ten lắc lư tinh nghịch và động cơ phản lực mini.',
+    badge: 'CYBER BOT / PHI HÀNH GIA',
+    description: 'Chiến binh robot phi hành gia không gian tương lai: mũ bảo hiểm công nghệ cao với kính màn hình LED xanh cyan phát sáng, bộ giáp phản lực và giày sneakers trắng năng động.',
     colors: {
-      primary: '#eab308',
-      secondary: '#0f172a',
-      accent: '#38bdf8',
-      skin: '#facc15',
-      hair: '#0f172a',
-      eyes: '#38bdf8',
+      primary: '#1e2433',
+      secondary: '#ffffff',
+      accent: '#00f0ff',
+      skin: '#111827',
+      hair: '#1e2433',
+      eyes: '#00f0ff',
     },
   },
 };
@@ -85,6 +85,11 @@ export interface CharacterRig {
   rightLegGroup: THREE.Group;
   leftFootGroup: THREE.Group;
   rightFootGroup: THREE.Group;
+  // Sub-articulated limb nodes for realistic human kinematics
+  leftForearmGroup?: THREE.Group;
+  rightForearmGroup?: THREE.Group;
+  leftCalfGroup?: THREE.Group;
+  rightCalfGroup?: THREE.Group;
   // Dynamic secondary motion nodes
   secondaryNodes: {
     scarfBones?: THREE.Mesh[];
@@ -126,6 +131,10 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
   const rightLegGroup = new THREE.Group();
   const leftFootGroup = new THREE.Group();
   const rightFootGroup = new THREE.Group();
+  const leftForearmGroup = new THREE.Group();
+  const rightForearmGroup = new THREE.Group();
+  const leftCalfGroup = new THREE.Group();
+  const rightCalfGroup = new THREE.Group();
 
   innerBodyGroup.add(torsoGroup);
   innerBodyGroup.add(headGroup);
@@ -133,9 +142,6 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
   innerBodyGroup.add(rightArmGroup);
   innerBodyGroup.add(leftLegGroup);
   innerBodyGroup.add(rightLegGroup);
-
-  leftLegGroup.add(leftFootGroup);
-  rightLegGroup.add(rightFootGroup);
 
   const secondaryNodes: CharacterRig['secondaryNodes'] = {};
 
@@ -149,242 +155,666 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
 
   const basicMat = (color: string) => new THREE.MeshBasicMaterial({ color });
 
+  if (characterId !== 'kaito') {
+    leftLegGroup.add(leftFootGroup);
+    rightLegGroup.add(rightFootGroup);
+  }
+
   // 1. Build character specifics based on CharacterId
   if (characterId === 'kaito') {
     // ------------------------------------------------------------------------
-    // KAITO: Athletic Human Street Parkour Runner
+    // KAITO: High-Fidelity Realistic Athletic Human Parkour Athlete
     // ------------------------------------------------------------------------
-    const skinMat = pbrMat('#fed7aa', 0.65, 0.0);
-    const hairMat = pbrMat('#2d1a0f', 0.8, 0.05);
-    const hoodieRed = pbrMat('#dc2626', 0.5, 0.05);
-    const hoodieWhite = pbrMat('#f8fafc', 0.4, 0.05);
-    const pantsMat = pbrMat('#1e293b', 0.6, 0.1);
-    const gloveMat = pbrMat('#0f172a', 0.35, 0.2);
-    const shoeRedMat = pbrMat('#ef4444', 0.35, 0.15);
-    const shoeWhiteMat = pbrMat('#ffffff', 0.25, 0.1);
-    const eyeWhiteMat = basicMat('#ffffff');
-    const eyeBlueMat = basicMat('#2563eb');
-    const eyePupilMat = basicMat('#0f172a');
-    const eyeGlintMat = basicMat('#ffffff');
-    const capMat = pbrMat('#0f172a', 0.5, 0.1);
+    // Realistic PBR Materials
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: '#f5c6a5',
+      roughness: 0.62,
+      metalness: 0.0,
+    });
+    const lipsMat = new THREE.MeshStandardMaterial({
+      color: '#c96a60',
+      roughness: 0.55,
+      metalness: 0.0,
+    });
+    const hairMat = new THREE.MeshStandardMaterial({
+      color: '#251610',
+      roughness: 0.38,
+      metalness: 0.12,
+    });
+    const hoodieRedMat = new THREE.MeshStandardMaterial({
+      color: '#dc2626',
+      roughness: 0.72,
+      metalness: 0.05,
+    });
+    const hoodieDarkMat = new THREE.MeshStandardMaterial({
+      color: '#18181b',
+      roughness: 0.75,
+      metalness: 0.05,
+    });
+    const hoodieWhiteMat = new THREE.MeshStandardMaterial({
+      color: '#f8fafc',
+      roughness: 0.65,
+      metalness: 0.05,
+    });
+    const metalChromeMat = new THREE.MeshStandardMaterial({
+      color: '#e2e8f0',
+      roughness: 0.2,
+      metalness: 0.9,
+    });
+    const joggersMat = new THREE.MeshStandardMaterial({
+      color: '#1e293b',
+      roughness: 0.78,
+      metalness: 0.08,
+    });
+    const reflective3MMat = new THREE.MeshStandardMaterial({
+      color: '#e2e8f0',
+      roughness: 0.15,
+      metalness: 0.85,
+    });
+    const gloveLeatherMat = new THREE.MeshStandardMaterial({
+      color: '#09090b',
+      roughness: 0.38,
+      metalness: 0.2,
+    });
+    const smartWatchMat = new THREE.MeshBasicMaterial({ color: '#00e5ff' });
+    const sneakerRedMat = new THREE.MeshStandardMaterial({
+      color: '#ef4444',
+      roughness: 0.45,
+      metalness: 0.08,
+    });
+    const sneakerWhiteMat = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.35,
+      metalness: 0.05,
+    });
+    const sneakerRubberMat = new THREE.MeshStandardMaterial({
+      color: '#09090b',
+      roughness: 0.65,
+      metalness: 0.05,
+    });
+    const airCushionMat = new THREE.MeshStandardMaterial({
+      color: '#0284c7',
+      roughness: 0.15,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const eyeScleraMat = new THREE.MeshStandardMaterial({
+      color: '#f8fafc',
+      roughness: 0.2,
+      metalness: 0.0,
+    });
+    const eyeIrisMat = new THREE.MeshStandardMaterial({
+      color: '#1e40af',
+      roughness: 0.25,
+      metalness: 0.15,
+    });
+    const eyePupilMat = new THREE.MeshBasicMaterial({ color: '#020617' });
+    const eyeGlintMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+    const headbandMat = new THREE.MeshStandardMaterial({
+      color: '#0f172a',
+      roughness: 0.6,
+      metalness: 0.1,
+    });
 
-    // Torso: Athletic Hoodie
-    const torsoGeo = new THREE.BoxGeometry(0.44, 0.62, 0.26);
-    const torsoMesh = new THREE.Mesh(torsoGeo, hoodieRed);
-    torsoMesh.position.y = 1.05;
-    torsoMesh.castShadow = !isSoftwareGl;
-    torsoGroup.add(torsoMesh);
+    // ------------------------------------------------------------------------
+    // Anatomical Torso & Technical Parkour Hoodie
+    // ------------------------------------------------------------------------
+    torsoGroup.position.set(0, 0, 0);
 
-    // White center zipper stripe & front pocket
-    const zipperGeo = new THREE.BoxGeometry(0.04, 0.6, 0.02);
-    const zipperMesh = new THREE.Mesh(zipperGeo, hoodieWhite);
-    zipperMesh.position.set(0, 1.05, -0.132);
-    torsoGroup.add(zipperMesh);
+    // Upper chest / pectorals: V-tapered athletic human contour
+    const upperChestGeo = new THREE.CylinderGeometry(0.24, 0.20, 0.34, 16);
+    const upperChestMesh = new THREE.Mesh(upperChestGeo, hoodieRedMat);
+    upperChestMesh.position.set(0, 1.18, 0);
+    upperChestMesh.scale.set(1.0, 1.0, 0.72);
+    upperChestMesh.castShadow = !isSoftwareGl;
+    torsoGroup.add(upperChestMesh);
 
-    const pocketGeo = new THREE.BoxGeometry(0.3, 0.2, 0.04);
-    const pocketMesh = new THREE.Mesh(pocketGeo, hoodieRed);
-    pocketMesh.position.set(0, 0.9, -0.135);
-    torsoGroup.add(pocketMesh);
+    // Sculpted athletic pectoral muscle plates (left & right)
+    const pecGeo = new THREE.BoxGeometry(0.17, 0.14, 0.05);
+    const lPec = new THREE.Mesh(pecGeo, hoodieRedMat);
+    lPec.position.set(-0.09, 1.22, -0.13);
+    lPec.rotation.set(-0.05, 0.08, 0.06);
+    const rPec = new THREE.Mesh(pecGeo, hoodieRedMat);
+    rPec.position.set(0.09, 1.22, -0.13);
+    rPec.rotation.set(-0.05, -0.08, -0.06);
+    torsoGroup.add(lPec, rPec);
 
-    // Folded hoodie collar & hood on back
-    const hoodBackGeo = new THREE.BoxGeometry(0.32, 0.26, 0.14);
-    const hoodBackMesh = new THREE.Mesh(hoodBackGeo, hoodieRed);
-    hoodBackMesh.position.set(0, 1.25, 0.14);
-    hoodBackMesh.rotation.x = -0.3;
-    torsoGroup.add(hoodBackMesh);
+    // Ribcage & tapered athletic waist
+    const ribcageGeo = new THREE.CylinderGeometry(0.20, 0.165, 0.28, 16);
+    const ribcageMesh = new THREE.Mesh(ribcageGeo, hoodieDarkMat);
+    ribcageMesh.position.set(0, 0.94, 0);
+    ribcageMesh.scale.set(1.0, 1.0, 0.72);
+    ribcageMesh.castShadow = !isSoftwareGl;
+    torsoGroup.add(ribcageMesh);
 
-    // Hoodie drawstrings that swing
-    const cordGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6);
-    const cordL = new THREE.Mesh(cordGeo, hoodieWhite);
-    cordL.position.set(-0.09, 1.15, -0.14);
-    const cordR = new THREE.Mesh(cordGeo, hoodieWhite);
-    cordR.position.set(0.09, 1.15, -0.14);
+    // High ergonomic collar wrapping the neck
+    const collarGeo = new THREE.CylinderGeometry(0.11, 0.13, 0.12, 16);
+    const collarMesh = new THREE.Mesh(collarGeo, hoodieDarkMat);
+    collarMesh.position.set(0, 1.37, 0);
+    collarMesh.scale.set(1.0, 1.0, 0.78);
+    torsoGroup.add(collarMesh);
+
+    // Metallic front zipper track with 3D slider and dangling pull tab
+    const zipTrackGeo = new THREE.BoxGeometry(0.016, 0.58, 0.02);
+    const zipTrack = new THREE.Mesh(zipTrackGeo, hoodieWhiteMat);
+    zipTrack.position.set(0, 1.13, -0.142);
+    const zipSliderGeo = new THREE.BoxGeometry(0.032, 0.055, 0.025);
+    const zipSlider = new THREE.Mesh(zipSliderGeo, metalChromeMat);
+    zipSlider.position.set(0, 1.24, -0.146);
+    const zipPullGeo = new THREE.BoxGeometry(0.018, 0.07, 0.015);
+    const zipPull = new THREE.Mesh(zipPullGeo, metalChromeMat);
+    zipPull.position.set(0, 1.19, -0.15);
+    torsoGroup.add(zipTrack, zipSlider, zipPull);
+
+    // Angled zippered chest pockets with reflective accents
+    const pocketGeo = new THREE.BoxGeometry(0.08, 0.014, 0.02);
+    const lPocket = new THREE.Mesh(pocketGeo, reflective3MMat);
+    lPocket.position.set(-0.11, 1.14, -0.135);
+    lPocket.rotation.z = 0.28;
+    const rPocket = new THREE.Mesh(pocketGeo, reflective3MMat);
+    rPocket.position.set(0.11, 1.14, -0.135);
+    rPocket.rotation.z = -0.28;
+    torsoGroup.add(lPocket, rPocket);
+
+    // Draped hoodie hood on the upper back (realistic cloth volume)
+    const hoodDomeGeo = new THREE.SphereGeometry(0.155, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.72);
+    const hoodDome = new THREE.Mesh(hoodDomeGeo, hoodieRedMat);
+    hoodDome.position.set(0, 1.26, 0.12);
+    hoodDome.scale.set(1.0, 0.8, 0.65);
+    hoodDome.rotation.x = -0.45;
+    const hoodRimGeo = new THREE.TorusGeometry(0.135, 0.024, 8, 16);
+    const hoodRim = new THREE.Mesh(hoodRimGeo, hoodieDarkMat);
+    hoodRim.position.set(0, 1.33, 0.09);
+    hoodRim.rotation.x = Math.PI / 3;
+    torsoGroup.add(hoodDome, hoodRim);
+
+    // Dynamic hanging hoodie drawstrings with metallic silver aglets
+    const cordGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.24, 6);
+    const cordL = new THREE.Mesh(cordGeo, hoodieWhiteMat);
+    cordL.position.set(-0.07, 1.22, -0.145);
+    const agletL = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.035, 6), metalChromeMat);
+    agletL.position.set(0, -0.11, 0);
+    cordL.add(agletL);
+
+    const cordR = new THREE.Mesh(cordGeo, hoodieWhiteMat);
+    cordR.position.set(0.07, 1.22, -0.145);
+    const agletR = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.035, 6), metalChromeMat);
+    agletR.position.set(0, -0.11, 0);
+    cordR.add(agletR);
+
     torsoGroup.add(cordL, cordR);
     secondaryNodes.hoodieCords = [cordL, cordR];
 
-    // Head: Human stylized contours
-    headGroup.position.set(0, 1.56, 0);
+    // Elastic ribbed hem at waist
+    const hemGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.06, 16);
+    const hemMesh = new THREE.Mesh(hemGeo, hoodieDarkMat);
+    hemMesh.position.set(0, 0.78, 0);
+    hemMesh.scale.set(1.0, 1.0, 0.72);
+    torsoGroup.add(hemMesh);
 
-    const neckGeo = new THREE.CylinderGeometry(0.08, 0.09, 0.12, 8);
+    // ------------------------------------------------------------------------
+    // Anatomical Head & Realistic Face
+    // ------------------------------------------------------------------------
+    headGroup.position.set(0, 1.54, 0);
+
+    // Anatomical neck with natural forward posture
+    const neckGeo = new THREE.CylinderGeometry(0.068, 0.082, 0.16, 16);
     const neckMesh = new THREE.Mesh(neckGeo, skinMat);
-    neckMesh.position.y = -0.14;
+    neckMesh.position.set(0, -0.10, -0.01);
+    neckMesh.rotation.x = 0.08;
     headGroup.add(neckMesh);
 
-    const headGeo = new THREE.BoxGeometry(0.32, 0.33, 0.32);
-    const headMesh = new THREE.Mesh(headGeo, skinMat);
-    headMesh.position.y = 0.06;
-    headMesh.castShadow = !isSoftwareGl;
-    headGroup.add(headMesh);
+    // Smooth cranium dome
+    const craniumGeo = new THREE.SphereGeometry(0.145, 18, 16);
+    const craniumMesh = new THREE.Mesh(craniumGeo, skinMat);
+    craniumMesh.position.set(0, 0.08, 0.01);
+    craniumMesh.scale.set(0.96, 1.05, 1.02);
+    craniumMesh.castShadow = !isSoftwareGl;
+    headGroup.add(craniumMesh);
 
-    // Human Anime Face: Big lively eyes
-    const eyeWhiteGeo = new THREE.BoxGeometry(0.075, 0.09, 0.02);
-    const eyeIrisGeo = new THREE.BoxGeometry(0.045, 0.06, 0.025);
-    const eyePupilGeo = new THREE.BoxGeometry(0.025, 0.035, 0.03);
-    const eyeGlintGeo = new THREE.BoxGeometry(0.018, 0.018, 0.035);
+    // Contoured mandible / jawline tapering down to chin
+    const jawGeo = new THREE.CylinderGeometry(0.125, 0.082, 0.14, 16);
+    const jawMesh = new THREE.Mesh(jawGeo, skinMat);
+    jawMesh.position.set(0, -0.01, -0.02);
+    jawMesh.scale.set(0.95, 1.0, 0.88);
+    headGroup.add(jawMesh);
 
-    // Left eye
-    const eyeWhiteL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
-    eyeWhiteL.position.set(-0.085, 0.06, -0.162);
-    const eyeIrisL = new THREE.Mesh(eyeIrisGeo, eyeBlueMat);
-    eyeIrisL.position.set(-0.085, 0.06, -0.164);
-    const eyePupilL = new THREE.Mesh(eyePupilGeo, eyePupilMat);
-    eyePupilL.position.set(-0.085, 0.06, -0.166);
-    const eyeGlintL = new THREE.Mesh(eyeGlintGeo, eyeGlintMat);
-    eyeGlintL.position.set(-0.095, 0.08, -0.168);
-    headGroup.add(eyeWhiteL, eyeIrisL, eyePupilL, eyeGlintL);
+    // Sculpted athletic chin
+    const chinGeo = new THREE.SphereGeometry(0.042, 12, 10);
+    const chinMesh = new THREE.Mesh(chinGeo, skinMat);
+    chinMesh.position.set(0, -0.075, -0.085);
+    headGroup.add(chinMesh);
 
-    // Right eye
-    const eyeWhiteR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
-    eyeWhiteR.position.set(0.085, 0.06, -0.162);
-    const eyeIrisR = new THREE.Mesh(eyeIrisGeo, eyeBlueMat);
-    eyeIrisR.position.set(0.085, 0.06, -0.164);
-    const eyePupilR = new THREE.Mesh(eyePupilGeo, eyePupilMat);
-    eyePupilR.position.set(0.085, 0.06, -0.166);
-    const eyeGlintR = new THREE.Mesh(eyeGlintGeo, eyeGlintMat);
-    eyeGlintR.position.set(0.075, 0.08, -0.168);
-    headGroup.add(eyeWhiteR, eyeIrisR, eyePupilR, eyeGlintR);
+    // Sculpted cheekbone arches (left & right)
+    const cheekGeo = new THREE.SphereGeometry(0.038, 10, 8);
+    const lCheek = new THREE.Mesh(cheekGeo, skinMat);
+    lCheek.position.set(-0.105, 0.015, -0.05);
+    const rCheek = new THREE.Mesh(cheekGeo, skinMat);
+    rCheek.position.set(0.105, 0.015, -0.05);
+    headGroup.add(lCheek, rCheek);
 
-    secondaryNodes.eyeL = eyeWhiteL;
-    secondaryNodes.eyeR = eyeWhiteR;
+    // Contoured 3D Nose (nasal bridge + tip + nostrils)
+    const nasalBridgeGeo = new THREE.CylinderGeometry(0.012, 0.022, 0.072, 8);
+    const nasalBridge = new THREE.Mesh(nasalBridgeGeo, skinMat);
+    nasalBridge.position.set(0, 0.025, -0.142);
+    nasalBridge.rotation.x = 0.28;
+    const noseTipGeo = new THREE.SphereGeometry(0.022, 10, 8);
+    const noseTip = new THREE.Mesh(noseTipGeo, skinMat);
+    noseTip.position.set(0, -0.014, -0.158);
+    const nostrilGeo = new THREE.SphereGeometry(0.013, 8, 6);
+    const lNostril = new THREE.Mesh(nostrilGeo, skinMat);
+    lNostril.position.set(-0.022, -0.020, -0.148);
+    const rNostril = new THREE.Mesh(nostrilGeo, skinMat);
+    rNostril.position.set(0.022, -0.020, -0.148);
+    headGroup.add(nasalBridge, noseTip, lNostril, rNostril);
 
-    // Eyebrows
-    const browGeo = new THREE.BoxGeometry(0.08, 0.018, 0.02);
-    const browL = new THREE.Mesh(browGeo, hairMat);
-    browL.position.set(-0.085, 0.13, -0.162);
-    browL.rotation.z = 0.08;
-    const browR = new THREE.Mesh(browGeo, hairMat);
-    browR.position.set(0.085, 0.13, -0.162);
-    browR.rotation.z = -0.08;
-    headGroup.add(browL, browR);
+    // Realistic Mouth with Philtrum & Contoured Lips
+    const philtrumGeo = new THREE.BoxGeometry(0.015, 0.025, 0.01);
+    const philtrum = new THREE.Mesh(philtrumGeo, skinMat);
+    philtrum.position.set(0, -0.042, -0.146);
 
-    // Stylized smile
-    const smileGeo = new THREE.BoxGeometry(0.07, 0.018, 0.02);
-    const smileMesh = new THREE.Mesh(smileGeo, basicMat('#be123c'));
-    smileMesh.position.set(0, -0.05, -0.162);
-    headGroup.add(smileMesh);
+    const upperLipGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.045, 8);
+    const upperLip = new THREE.Mesh(upperLipGeo, lipsMat);
+    upperLip.position.set(0, -0.054, -0.144);
+    upperLip.rotation.z = Math.PI / 2;
 
-    // Human stylized ears
-    const earGeo = new THREE.BoxGeometry(0.03, 0.08, 0.07);
-    const earL = new THREE.Mesh(earGeo, skinMat);
-    earL.position.set(-0.175, 0.06, 0);
-    const earR = new THREE.Mesh(earGeo, skinMat);
-    earR.position.set(0.175, 0.06, 0);
-    headGroup.add(earL, earR);
+    const lowerLipGeo = new THREE.SphereGeometry(0.022, 10, 8);
+    const lowerLip = new THREE.Mesh(lowerLipGeo, lipsMat);
+    lowerLip.position.set(0, -0.070, -0.140);
+    lowerLip.scale.set(1.4, 0.6, 0.8);
+    headGroup.add(philtrum, upperLip, lowerLip);
 
-    // Backward snapback cap & styled brown hair
-    const capDomeGeo = new THREE.SphereGeometry(0.185, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-    const capDome = new THREE.Mesh(capDomeGeo, capMat);
-    capDome.position.set(0, 0.13, 0.02);
-    headGroup.add(capDome);
+    // Realistic Eyes (Curved Sclera, Deep Blue Iris, Pupil & Corneal Glint)
+    const eyeScleraGeo = new THREE.SphereGeometry(0.038, 14, 12);
+    const eyeIrisGeo = new THREE.CircleGeometry(0.022, 16);
+    const eyePupilGeo = new THREE.CircleGeometry(0.011, 16);
+    const eyeGlintGeo = new THREE.CircleGeometry(0.006, 8);
 
-    // Cap backward brim / visor
-    const brimGeo = new THREE.BoxGeometry(0.24, 0.02, 0.16);
-    const brimMesh = new THREE.Mesh(brimGeo, capMat);
-    brimMesh.position.set(0, 0.13, 0.22);
-    brimMesh.rotation.x = 0.15;
-    headGroup.add(brimMesh);
+    // Left Eye
+    const lEyeSclera = new THREE.Mesh(eyeScleraGeo, eyeScleraMat);
+    lEyeSclera.position.set(-0.068, 0.045, -0.128);
+    const lEyeIris = new THREE.Mesh(eyeIrisGeo, eyeIrisMat);
+    lEyeIris.position.set(-0.068, 0.045, -0.158);
+    const lEyePupil = new THREE.Mesh(eyePupilGeo, eyePupilMat);
+    lEyePupil.position.set(-0.068, 0.045, -0.159);
+    const lEyeGlint = new THREE.Mesh(eyeGlintGeo, eyeGlintMat);
+    lEyeGlint.position.set(-0.062, 0.052, -0.160);
+    headGroup.add(lEyeSclera, lEyeIris, lEyePupil, lEyeGlint);
 
-    // Front spiky hair tufts peeking out from cap
-    const hairBangsGeo = new THREE.ConeGeometry(0.06, 0.14, 5);
-    const bang1 = new THREE.Mesh(hairBangsGeo, hairMat);
-    bang1.position.set(-0.08, 0.14, -0.16);
-    bang1.rotation.set(-0.5, 0, -0.2);
-    const bang2 = new THREE.Mesh(hairBangsGeo, hairMat);
-    bang2.position.set(0.02, 0.15, -0.165);
-    bang2.rotation.set(-0.4, 0, 0.15);
-    const bang3 = new THREE.Mesh(hairBangsGeo, hairMat);
-    bang3.position.set(0.09, 0.13, -0.155);
-    bang3.rotation.set(-0.5, 0, 0.3);
-    headGroup.add(bang1, bang2, bang3);
+    // Right Eye
+    const rEyeSclera = new THREE.Mesh(eyeScleraGeo, eyeScleraMat);
+    rEyeSclera.position.set(0.068, 0.045, -0.128);
+    const rEyeIris = new THREE.Mesh(eyeIrisGeo, eyeIrisMat);
+    rEyeIris.position.set(0.068, 0.045, -0.158);
+    const rEyePupil = new THREE.Mesh(eyePupilGeo, eyePupilMat);
+    rEyePupil.position.set(0.068, 0.045, -0.159);
+    const rEyeGlint = new THREE.Mesh(eyeGlintGeo, eyeGlintMat);
+    rEyeGlint.position.set(0.074, 0.052, -0.160);
+    headGroup.add(rEyeSclera, rEyeIris, rEyePupil, rEyeGlint);
 
-    // Arms & Gloved Hands
-    leftArmGroup.position.set(-0.31, 1.34, 0);
-    rightArmGroup.position.set(0.31, 1.34, 0);
+    secondaryNodes.eyeL = lEyeSclera;
+    secondaryNodes.eyeR = rEyeSclera;
 
-    const shoulderGeo = new THREE.BoxGeometry(0.14, 0.18, 0.14);
-    const sleeveGeo = new THREE.BoxGeometry(0.13, 0.22, 0.13);
-    const forearmGeo = new THREE.BoxGeometry(0.11, 0.22, 0.11);
-    const gloveGeo = new THREE.BoxGeometry(0.12, 0.15, 0.13);
-    const thumbGeo = new THREE.BoxGeometry(0.04, 0.07, 0.05);
+    // Sculpted Eyelids & Eyebrows
+    const eyelidGeo = new THREE.TorusGeometry(0.038, 0.009, 6, 12, Math.PI);
+    const lEyelid = new THREE.Mesh(eyelidGeo, skinMat);
+    lEyelid.position.set(-0.068, 0.056, -0.138);
+    lEyelid.rotation.x = 0.35;
+    const rEyelid = new THREE.Mesh(eyelidGeo, skinMat);
+    rEyelid.position.set(0.068, 0.056, -0.138);
+    rEyelid.rotation.x = 0.35;
 
-    // Left Arm parts
-    const lShoulder = new THREE.Mesh(shoulderGeo, hoodieRed);
-    lShoulder.position.y = -0.06;
-    const lSleeve = new THREE.Mesh(sleeveGeo, hoodieWhite);
-    lSleeve.position.y = -0.22;
+    const browGeo = new THREE.BoxGeometry(0.082, 0.016, 0.02);
+    const lBrow = new THREE.Mesh(browGeo, hairMat);
+    lBrow.position.set(-0.07, 0.096, -0.142);
+    lBrow.rotation.z = 0.1;
+    const rBrow = new THREE.Mesh(browGeo, hairMat);
+    rBrow.position.set(0.07, 0.096, -0.142);
+    rBrow.rotation.z = -0.1;
+    headGroup.add(lEyelid, rEyelid, lBrow, rBrow);
+
+    // Sculpted Anatomical Ears
+    const earHelixGeo = new THREE.TorusGeometry(0.034, 0.011, 8, 14, Math.PI * 1.3);
+    const lEar = new THREE.Mesh(earHelixGeo, skinMat);
+    lEar.position.set(-0.146, 0.03, 0.01);
+    lEar.rotation.set(0, -0.2, 0.15);
+    const rEar = new THREE.Mesh(earHelixGeo, skinMat);
+    rEar.position.set(0.146, 0.03, 0.01);
+    rEar.rotation.set(0, 0.2, -0.15);
+    const earLobeGeo = new THREE.SphereGeometry(0.016, 8, 8);
+    const lLobe = new THREE.Mesh(earLobeGeo, skinMat);
+    lLobe.position.set(-0.146, -0.014, 0.01);
+    const rLobe = new THREE.Mesh(earLobeGeo, skinMat);
+    rLobe.position.set(0.146, -0.014, 0.01);
+    headGroup.add(lEar, rEar, lLobe, rLobe);
+
+    // Realistic Layered Swept Athletic Hair
+    // Base hair volume
+    const hairDomeGeo = new THREE.SphereGeometry(0.152, 16, 14, 0, Math.PI * 2, 0, Math.PI * 0.65);
+    const hairDome = new THREE.Mesh(hairDomeGeo, hairMat);
+    hairDome.position.set(0, 0.10, 0.01);
+    headGroup.add(hairDome);
+
+    // Dynamic swept hair locks across top & front
+    const hairLockGeo = new THREE.ConeGeometry(0.05, 0.16, 6);
+    const lock1 = new THREE.Mesh(hairLockGeo, hairMat);
+    lock1.position.set(-0.06, 0.18, -0.12);
+    lock1.rotation.set(-0.55, 0.1, -0.25);
+
+    const lock2 = new THREE.Mesh(hairLockGeo, hairMat);
+    lock2.position.set(0.02, 0.20, -0.13);
+    lock2.rotation.set(-0.45, -0.15, 0.18);
+
+    const lock3 = new THREE.Mesh(hairLockGeo, hairMat);
+    lock3.position.set(0.08, 0.17, -0.11);
+    lock3.rotation.set(-0.50, -0.25, 0.35);
+
+    const lockBack1 = new THREE.Mesh(hairLockGeo, hairMat);
+    lockBack1.position.set(-0.05, 0.19, 0.08);
+    lockBack1.rotation.set(0.6, 0.1, -0.15);
+
+    const lockBack2 = new THREE.Mesh(hairLockGeo, hairMat);
+    lockBack2.position.set(0.05, 0.19, 0.08);
+    lockBack2.rotation.set(0.6, -0.1, 0.15);
+
+    headGroup.add(lock1, lock2, lock3, lockBack1, lockBack2);
+
+    // Sports Sweatband across forehead
+    const bandGeo = new THREE.CylinderGeometry(0.148, 0.148, 0.034, 24, 1, true);
+    const sweatBand = new THREE.Mesh(bandGeo, headbandMat);
+    sweatBand.position.set(0, 0.10, 0.01);
+    const logoMarkGeo = new THREE.BoxGeometry(0.035, 0.016, 0.01);
+    const logoMark = new THREE.Mesh(logoMarkGeo, hoodieRedMat);
+    logoMark.position.set(0, 0.10, -0.142);
+    headGroup.add(sweatBand, logoMark);
+
+    // ------------------------------------------------------------------------
+    // Articulated Upper Limbs: Deltoids, Biceps, Forearms, Parkour Gloves
+    // ------------------------------------------------------------------------
+    leftArmGroup.position.set(-0.28, 1.32, 0);
+    rightArmGroup.position.set(0.28, 1.32, 0);
+
+    // Muscular Deltoid Shoulder Caps
+    const deltoidGeo = new THREE.SphereGeometry(0.078, 14, 12);
+    const lDeltoid = new THREE.Mesh(deltoidGeo, hoodieRedMat);
+    lDeltoid.scale.set(1.1, 1.0, 0.9);
+    const rDeltoid = new THREE.Mesh(deltoidGeo, hoodieRedMat);
+    rDeltoid.scale.set(1.1, 1.0, 0.9);
+    leftArmGroup.add(lDeltoid);
+    rightArmGroup.add(rDeltoid);
+
+    // Upper Arm (Biceps & Triceps)
+    const upperArmGeo = new THREE.CylinderGeometry(0.062, 0.052, 0.22, 14);
+    const lUpperArm = new THREE.Mesh(upperArmGeo, hoodieDarkMat);
+    lUpperArm.position.y = -0.11;
+    const rUpperArm = new THREE.Mesh(upperArmGeo, hoodieDarkMat);
+    rUpperArm.position.y = -0.11;
+    leftArmGroup.add(lUpperArm);
+    rightArmGroup.add(rUpperArm);
+
+    // Articulated Forearm Groups (attached at elbow for realistic flexion)
+    leftForearmGroup.position.set(0, -0.22, 0);
+    rightForearmGroup.position.set(0, -0.22, 0);
+    leftArmGroup.add(leftForearmGroup);
+    rightArmGroup.add(rightForearmGroup);
+
+    // Elbow Condyles
+    const elbowGeo = new THREE.SphereGeometry(0.052, 12, 10);
+    const lElbow = new THREE.Mesh(elbowGeo, hoodieDarkMat);
+    const rElbow = new THREE.Mesh(elbowGeo, hoodieDarkMat);
+    leftForearmGroup.add(lElbow);
+    rightForearmGroup.add(rElbow);
+
+    // Muscular Forearms
+    const forearmGeo = new THREE.CylinderGeometry(0.054, 0.042, 0.22, 14);
     const lForearm = new THREE.Mesh(forearmGeo, skinMat);
-    lForearm.position.y = -0.38;
-    const lGlove = new THREE.Mesh(gloveGeo, gloveMat);
-    lGlove.position.y = -0.52;
-    const lThumb = new THREE.Mesh(thumbGeo, gloveMat);
-    lThumb.position.set(0.06, -0.5, -0.04);
-    leftArmGroup.add(lShoulder, lSleeve, lForearm, lGlove, lThumb);
-
-    // Right Arm parts
-    const rShoulder = new THREE.Mesh(shoulderGeo, hoodieRed);
-    rShoulder.position.y = -0.06;
-    const rSleeve = new THREE.Mesh(sleeveGeo, hoodieWhite);
-    rSleeve.position.y = -0.22;
+    lForearm.position.y = -0.11;
     const rForearm = new THREE.Mesh(forearmGeo, skinMat);
-    rForearm.position.y = -0.38;
-    const rGlove = new THREE.Mesh(gloveGeo, gloveMat);
-    rGlove.position.y = -0.52;
-    const rThumb = new THREE.Mesh(thumbGeo, gloveMat);
-    rThumb.position.set(-0.06, -0.5, -0.04);
-    rightArmGroup.add(rShoulder, rSleeve, rForearm, rGlove, rThumb);
+    rForearm.position.y = -0.11;
+    leftForearmGroup.add(lForearm);
+    rightForearmGroup.add(rForearm);
 
-    // Legs: Joggers & Chunky Sneakers
-    leftLegGroup.position.set(-0.15, 0.74, 0);
-    rightLegGroup.position.set(0.15, 0.74, 0);
+    // Left Wrist: Smart Sports Parkour Tracker Watch
+    const watchBandGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.038, 14);
+    const watchBand = new THREE.Mesh(watchBandGeo, gloveLeatherMat);
+    watchBand.position.y = -0.20;
+    const watchScreenGeo = new THREE.BoxGeometry(0.038, 0.032, 0.015);
+    const watchScreen = new THREE.Mesh(watchScreenGeo, smartWatchMat);
+    watchScreen.position.set(0, -0.20, -0.046);
+    leftForearmGroup.add(watchBand, watchScreen);
 
-    const thighGeo = new THREE.BoxGeometry(0.16, 0.34, 0.16);
-    const calfGeo = new THREE.BoxGeometry(0.14, 0.32, 0.14);
-    const cuffGeo = new THREE.BoxGeometry(0.15, 0.08, 0.15);
+    // Right Wrist: Athletic Compression Support Strap
+    const strapGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.04, 14);
+    const strapMesh = new THREE.Mesh(strapGeo, hoodieRedMat);
+    strapMesh.position.y = -0.20;
+    rightForearmGroup.add(strapMesh);
 
-    const lThigh = new THREE.Mesh(thighGeo, pantsMat);
-    lThigh.position.y = -0.15;
-    const lCalf = new THREE.Mesh(calfGeo, pantsMat);
-    lCalf.position.y = -0.42;
-    const lCuff = new THREE.Mesh(cuffGeo, pbrMat('#0f172a', 0.5, 0.1));
-    lCuff.position.y = -0.58;
-    leftLegGroup.add(lThigh, lCalf, lCuff);
+    // Realistic Half-Finger Tactical Parkour Gloves & Articulated Hands
+    const palmGeo = new THREE.BoxGeometry(0.088, 0.09, 0.044);
+    const thumbGeo = new THREE.BoxGeometry(0.032, 0.065, 0.032);
+    const fingerGeo = new THREE.BoxGeometry(0.024, 0.075, 0.026);
+    const fingerTipGeo = new THREE.BoxGeometry(0.022, 0.03, 0.024);
 
-    const rThigh = new THREE.Mesh(thighGeo, pantsMat);
-    rThigh.position.y = -0.15;
-    const rCalf = new THREE.Mesh(calfGeo, pantsMat);
-    rCalf.position.y = -0.42;
-    const rCuff = new THREE.Mesh(cuffGeo, pbrMat('#0f172a', 0.5, 0.1));
-    rCuff.position.y = -0.58;
-    rightLegGroup.add(rThigh, rCalf, rCuff);
+    // Left Hand (Palm + Opposable Thumb + Articulated Fingers)
+    const lPalm = new THREE.Mesh(palmGeo, gloveLeatherMat);
+    lPalm.position.y = -0.27;
 
-    // Sneakers: Detailed sports kicks
-    const shoeBodyGeo = new THREE.BoxGeometry(0.16, 0.13, 0.28);
-    const shoeSoleGeo = new THREE.BoxGeometry(0.17, 0.05, 0.3);
-    const shoeToeGeo = new THREE.BoxGeometry(0.16, 0.08, 0.1);
-    const airBubbleGeo = new THREE.BoxGeometry(0.14, 0.025, 0.14);
-    const airBubbleMat = basicMat('#38bdf8');
+    const lThumb = new THREE.Mesh(thumbGeo, gloveLeatherMat);
+    lThumb.position.set(0.045, -0.25, -0.025);
+    lThumb.rotation.set(0.2, 0, -0.4);
+    const lThumbTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    lThumbTip.position.set(0, -0.035, 0);
+    lThumb.add(lThumbTip);
 
-    // Left shoe
-    leftFootGroup.position.set(0, -0.66, -0.04);
-    const lShoeBody = new THREE.Mesh(shoeBodyGeo, shoeRedMat);
-    const lShoeSole = new THREE.Mesh(shoeSoleGeo, shoeWhiteMat);
-    lShoeSole.position.y = -0.07;
-    const lShoeToe = new THREE.Mesh(shoeToeGeo, shoeWhiteMat);
-    lShoeToe.position.set(0, -0.03, -0.11);
-    const lAirBubble = new THREE.Mesh(airBubbleGeo, airBubbleMat);
-    lAirBubble.position.set(0, -0.05, 0.05);
-    leftFootGroup.add(lShoeBody, lShoeSole, lShoeToe, lAirBubble);
+    // Index & Gripping fingers
+    const lIndex = new THREE.Mesh(fingerGeo, gloveLeatherMat);
+    lIndex.position.set(0.026, -0.32, -0.01);
+    lIndex.rotation.x = 0.25;
+    const lIndexTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    lIndexTip.position.set(0, -0.04, 0);
+    lIndex.add(lIndexTip);
 
-    // Right shoe
-    rightFootGroup.position.set(0, -0.66, -0.04);
-    const rShoeBody = new THREE.Mesh(shoeBodyGeo, shoeRedMat);
-    const rShoeSole = new THREE.Mesh(shoeSoleGeo, shoeWhiteMat);
-    rShoeSole.position.y = -0.07;
-    const rShoeToe = new THREE.Mesh(shoeToeGeo, shoeWhiteMat);
-    rShoeToe.position.set(0, -0.03, -0.11);
-    const rAirBubble = new THREE.Mesh(airBubbleGeo, airBubbleMat);
-    rAirBubble.position.set(0, -0.05, 0.05);
-    rightFootGroup.add(rShoeBody, rShoeSole, rShoeToe, rAirBubble);
+    const lMiddle = new THREE.Mesh(fingerGeo, gloveLeatherMat);
+    lMiddle.position.set(0.0, -0.325, -0.01);
+    lMiddle.rotation.x = 0.32;
+    const lMiddleTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    lMiddleTip.position.set(0, -0.04, 0);
+    lMiddle.add(lMiddleTip);
+
+    const lRing = new THREE.Mesh(fingerGeo, gloveLeatherMat);
+    lRing.position.set(-0.026, -0.315, -0.01);
+    lRing.rotation.x = 0.35;
+    const lRingTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    lRingTip.position.set(0, -0.04, 0);
+    lRing.add(lRingTip);
+
+    leftForearmGroup.add(lPalm, lThumb, lIndex, lMiddle, lRing);
+
+    // Right Hand (Palm + Opposable Thumb + Articulated Fingers)
+    const rPalm = new THREE.Mesh(palmGeo, gloveLeatherMat);
+    rPalm.position.y = -0.27;
+
+    const rThumb = new THREE.Mesh(thumbGeo, gloveLeatherMat);
+    rThumb.position.set(-0.045, -0.25, -0.025);
+    rThumb.rotation.set(0.2, 0, 0.4);
+    const rThumbTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    rThumbTip.position.set(0, -0.035, 0);
+    rThumb.add(rThumbTip);
+
+    const rIndex = new THREE.Mesh(fingerGeo, gloveLeatherMat);
+    rIndex.position.set(-0.026, -0.32, -0.01);
+    rIndex.rotation.x = 0.25;
+    const rIndexTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    rIndexTip.position.set(0, -0.04, 0);
+    rIndex.add(rIndexTip);
+
+    const rMiddle = new THREE.Mesh(fingerGeo, gloveLeatherMat);
+    rMiddle.position.set(0.0, -0.325, -0.01);
+    rMiddle.rotation.x = 0.32;
+    const rMiddleTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    rMiddleTip.position.set(0, -0.04, 0);
+    rMiddle.add(rMiddleTip);
+
+    const rRing = new THREE.Mesh(fingerGeo, gloveLeatherMat);
+    rRing.position.set(0.026, -0.315, -0.01);
+    rRing.rotation.x = 0.35;
+    const rRingTip = new THREE.Mesh(fingerTipGeo, skinMat);
+    rRingTip.position.set(0, -0.04, 0);
+    rRing.add(rRingTip);
+
+    rightForearmGroup.add(rPalm, rThumb, rIndex, rMiddle, rRing);
+
+    // ------------------------------------------------------------------------
+    // Muscular Athletic Lower Limbs: Quadriceps, Calves & AcroKicks Sneakers
+    // ------------------------------------------------------------------------
+    leftLegGroup.position.set(-0.14, 0.76, 0);
+    rightLegGroup.position.set(0.14, 0.76, 0);
+
+    // Muscular Thighs (Quadriceps with athletic taper)
+    const thighGeo = new THREE.CylinderGeometry(0.088, 0.070, 0.34, 14);
+    const lThigh = new THREE.Mesh(thighGeo, joggersMat);
+    lThigh.position.y = -0.17;
+    lThigh.scale.set(1.0, 1.0, 1.05);
+    const rThigh = new THREE.Mesh(thighGeo, joggersMat);
+    rThigh.position.y = -0.17;
+    rThigh.scale.set(1.0, 1.0, 1.05);
+    leftLegGroup.add(lThigh);
+    rightLegGroup.add(rThigh);
+
+    // Articulated Calf Groups (positioned at knee for natural running flexion)
+    leftCalfGroup.position.set(0, -0.34, 0);
+    rightCalfGroup.position.set(0, -0.34, 0);
+    leftLegGroup.add(leftCalfGroup);
+    rightLegGroup.add(rightCalfGroup);
+
+    // Patella Kneecaps with reinforced technical parkour panels
+    const kneeGeo = new THREE.BoxGeometry(0.11, 0.10, 0.05);
+    const lKnee = new THREE.Mesh(kneeGeo, hoodieDarkMat);
+    lKnee.position.set(0, 0, -0.06);
+    const rKnee = new THREE.Mesh(kneeGeo, hoodieDarkMat);
+    rKnee.position.set(0, 0, -0.06);
+    leftCalfGroup.add(lKnee);
+    rightCalfGroup.add(rKnee);
+
+    // Muscular Calves (Gastrocnemius contour tapering to Achilles)
+    const calfGeo = new THREE.CylinderGeometry(0.076, 0.050, 0.32, 14);
+    const lCalf = new THREE.Mesh(calfGeo, joggersMat);
+    lCalf.position.y = -0.16;
+    lCalf.scale.set(1.0, 1.0, 1.08);
+    const rCalf = new THREE.Mesh(calfGeo, joggersMat);
+    rCalf.position.y = -0.16;
+    rCalf.scale.set(1.0, 1.0, 1.08);
+
+    // Reflective 3M vertical side stripes along outer jogger seams
+    const stripeGeo = new THREE.BoxGeometry(0.012, 0.30, 0.02);
+    const lStripe = new THREE.Mesh(stripeGeo, reflective3MMat);
+    lStripe.position.set(-0.076, -0.16, 0);
+    const rStripe = new THREE.Mesh(stripeGeo, reflective3MMat);
+    rStripe.position.set(0.076, -0.16, 0);
+
+    // Ribbed ankle cuffs
+    const cuffGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.05, 14);
+    const lCuff = new THREE.Mesh(cuffGeo, hoodieDarkMat);
+    lCuff.position.y = -0.32;
+    const rCuff = new THREE.Mesh(cuffGeo, hoodieDarkMat);
+    rCuff.position.y = -0.32;
+
+    leftCalfGroup.add(lCalf, lStripe, lCuff);
+    rightCalfGroup.add(rCalf, rStripe, rCuff);
+
+    // Connect feet directly to calf groups for lifelike articulated leg kinematics
+    leftCalfGroup.add(leftFootGroup);
+    rightCalfGroup.add(rightFootGroup);
+
+    // ------------------------------------------------------------------------
+    // Pro Parkour Sneakers ("AcroKicks"): Curved Toe Spring, EVA Midsole, Air Unit
+    // ------------------------------------------------------------------------
+    leftFootGroup.position.set(0, -0.34, -0.04);
+    rightFootGroup.position.set(0, -0.34, -0.04);
+
+    const buildRealisticSneaker = () => {
+      const shoeGroup = new THREE.Group();
+
+      // Curved Rubber Outsole with traction tread
+      const outsoleGeo = new THREE.BoxGeometry(0.155, 0.035, 0.28);
+      const outsole = new THREE.Mesh(outsoleGeo, sneakerRubberMat);
+      outsole.position.set(0, -0.065, 0.02);
+
+      // Curved Upturned Toe Spring (anatomical running roll)
+      const toeSpringGeo = new THREE.BoxGeometry(0.15, 0.032, 0.09);
+      const toeSpring = new THREE.Mesh(toeSpringGeo, sneakerRubberMat);
+      toeSpring.position.set(0, -0.048, -0.135);
+      toeSpring.rotation.x = -0.22;
+
+      // Sculpted EVA Foam Midsole
+      const midsoleGeo = new THREE.BoxGeometry(0.152, 0.045, 0.27);
+      const midsole = new THREE.Mesh(midsoleGeo, sneakerWhiteMat);
+      midsole.position.set(0, -0.03, 0.02);
+
+      // Translucent Rear Air-Cushion Unit Window
+      const airGeo = new THREE.BoxGeometry(0.13, 0.025, 0.10);
+      const airMesh = new THREE.Mesh(airGeo, airCushionMat);
+      airMesh.position.set(0, -0.03, 0.08);
+
+      // Main Shoe Upper Body (Tech-fabric)
+      const upperGeo = new THREE.BoxGeometry(0.145, 0.095, 0.25);
+      const upper = new THREE.Mesh(upperGeo, sneakerRedMat);
+      upper.position.set(0, 0.02, 0.02);
+
+      // Front Toe Bumper Cap
+      const toeCapGeo = new THREE.BoxGeometry(0.142, 0.06, 0.08);
+      const toeCap = new THREE.Mesh(toeCapGeo, sneakerWhiteMat);
+      toeCap.position.set(0, 0.01, -0.11);
+      toeCap.rotation.x = -0.2;
+
+      // Padded Tongue & High-Top Collar
+      const tongueGeo = new THREE.BoxGeometry(0.11, 0.10, 0.03);
+      const tongue = new THREE.Mesh(tongueGeo, sneakerWhiteMat);
+      tongue.position.set(0, 0.08, -0.04);
+      tongue.rotation.x = -0.25;
+
+      const collarGeo = new THREE.BoxGeometry(0.14, 0.05, 0.12);
+      const collar = new THREE.Mesh(collarGeo, sneakerWhiteMat);
+      collar.position.set(0, 0.07, 0.08);
+
+      // 3D Crossed Shoelaces & Tied Knot
+      const laceBarGeo = new THREE.BoxGeometry(0.09, 0.012, 0.02);
+      const lace1 = new THREE.Mesh(laceBarGeo, sneakerWhiteMat);
+      lace1.position.set(0, 0.07, -0.07);
+      const lace2 = new THREE.Mesh(laceBarGeo, sneakerWhiteMat);
+      lace2.position.set(0, 0.085, -0.04);
+      const lace3 = new THREE.Mesh(laceBarGeo, sneakerWhiteMat);
+      lace3.position.set(0, 0.10, -0.01);
+      const knotGeo = new THREE.SphereGeometry(0.018, 8, 8);
+      const knot = new THREE.Mesh(knotGeo, sneakerWhiteMat);
+      knot.position.set(0, 0.115, -0.02);
+
+      // Rear Heel Pull Tab
+      const tabGeo = new THREE.BoxGeometry(0.02, 0.06, 0.015);
+      const tab = new THREE.Mesh(tabGeo, sneakerRedMat);
+      tab.position.set(0, 0.09, 0.14);
+
+      shoeGroup.add(
+        outsole,
+        toeSpring,
+        midsole,
+        airMesh,
+        upper,
+        toeCap,
+        tongue,
+        collar,
+        lace1,
+        lace2,
+        lace3,
+        knot,
+        tab
+      );
+      return shoeGroup;
+    };
+
+    leftFootGroup.add(buildRealisticSneaker());
+    rightFootGroup.add(buildRealisticSneaker());
   } else if (characterId === 'kibo') {
     // ------------------------------------------------------------------------
     // KIBO: Cute Cartoon Ninja Fox
@@ -787,135 +1217,141 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
     // ------------------------------------------------------------------------
     // SPARKY: Charming Chibi Toon Robot
     // ------------------------------------------------------------------------
-    const botYellowMat = pbrMat('#facc15', 0.35, 0.2);
-    const botDarkMat = pbrMat('#1e293b', 0.5, 0.4);
-    const eyeLedMat = basicMat('#38bdf8');
-    const heartLedMat = basicMat('#ef4444');
-    const flameMat = basicMat('#f97316');
+    // ------------------------------------------------------------------------
+    // SPARKY: Cyber Astronaut Parkour Runner (Exactly matching reference screenshot)
+    // ------------------------------------------------------------------------
+    const cyberDarkMat = pbrMat('#1e2433', 0.45, 0.25);
+    const cyberSuitMat = pbrMat('#111827', 0.5, 0.2);
+    const cyberCyanMat = new THREE.MeshStandardMaterial({
+      color: '#00f0ff',
+      emissive: new THREE.Color('#00f0ff'),
+      emissiveIntensity: 0.85,
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+    const sneakerWhiteMat = pbrMat('#ffffff', 0.35, 0.05);
+    const sneakerSoleMat = pbrMat('#0f172a', 0.7, 0.1);
+    const flameMat = basicMat('#00f0ff');
 
-    // Torso: Rounded Cartoon Robot Chassis
-    const torsoGeo = new THREE.BoxGeometry(0.48, 0.56, 0.3);
-    const torsoMesh = new THREE.Mesh(torsoGeo, botYellowMat);
+    // Torso: High-tech Dark Cyber Armor with Cyan Chest Accent
+    const torsoGeo = new THREE.BoxGeometry(0.44, 0.52, 0.28);
+    const torsoMesh = new THREE.Mesh(torsoGeo, cyberSuitMat);
     torsoMesh.position.y = 1.05;
     torsoGroup.add(torsoMesh);
 
-    // Glowing Heart / Power Meter Screen on chest
-    const screenGeo = new THREE.BoxGeometry(0.24, 0.2, 0.03);
-    const screenMesh = new THREE.Mesh(screenGeo, botDarkMat);
-    screenMesh.position.set(0, 1.1, -0.152);
-    const heartGeo = new THREE.OctahedronGeometry(0.06, 0);
-    const heartMesh = new THREE.Mesh(heartGeo, heartLedMat);
-    heartMesh.position.set(0, 1.1, -0.168);
-    torsoGroup.add(screenMesh, heartMesh);
+    // Glowing Cyan Core Stripe on chest
+    const chestStripeGeo = new THREE.BoxGeometry(0.12, 0.3, 0.02);
+    const chestStripe = new THREE.Mesh(chestStripeGeo, cyberCyanMat);
+    chestStripe.position.set(0, 1.08, -0.145);
+    torsoGroup.add(chestStripe);
 
-    // Twin Jet Thrusters on back
-    const jetPackGeo = new THREE.BoxGeometry(0.34, 0.36, 0.14);
-    const jetPack = new THREE.Mesh(jetPackGeo, botDarkMat);
-    jetPack.position.set(0, 1.05, 0.2);
+    // Tech Backpack / Jetpack with Vertical Glowing Cyan Light Bar
+    const jetPackGeo = new THREE.BoxGeometry(0.32, 0.38, 0.15);
+    const jetPack = new THREE.Mesh(jetPackGeo, cyberDarkMat);
+    jetPack.position.set(0, 1.06, 0.2);
     torsoGroup.add(jetPack);
 
-    const nozzleGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.12, 8);
-    const nozL = new THREE.Mesh(nozzleGeo, botDarkMat);
-    nozL.position.set(-0.1, 0.82, 0.2);
-    const nozR = new THREE.Mesh(nozzleGeo, botDarkMat);
-    nozR.position.set(0.1, 0.82, 0.2);
+    // Vertical glowing energy tube on backpack
+    const energyTubeGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.26, 8);
+    const energyTube = new THREE.Mesh(energyTubeGeo, cyberCyanMat);
+    energyTube.position.set(0, 1.06, 0.28);
+    torsoGroup.add(energyTube);
+
+    // Dual mini jet nozzles
+    const nozzleGeo = new THREE.CylinderGeometry(0.045, 0.06, 0.1, 8);
+    const nozL = new THREE.Mesh(nozzleGeo, cyberDarkMat);
+    nozL.position.set(-0.09, 0.84, 0.2);
+    const nozR = new THREE.Mesh(nozzleGeo, cyberDarkMat);
+    nozR.position.set(0.09, 0.84, 0.2);
     torsoGroup.add(nozL, nozR);
 
     // Thruster flame jets
-    const flameGeo = new THREE.ConeGeometry(0.06, 0.24, 6);
+    const flameGeo = new THREE.ConeGeometry(0.05, 0.22, 6);
     const flameL = new THREE.Mesh(flameGeo, flameMat);
-    flameL.position.set(-0.1, 0.68, 0.2);
+    flameL.position.set(-0.09, 0.72, 0.2);
     flameL.rotation.x = Math.PI;
     flameL.visible = false;
     const flameR = new THREE.Mesh(flameGeo, flameMat);
-    flameR.position.set(0.1, 0.68, 0.2);
+    flameR.position.set(0.09, 0.72, 0.2);
     flameR.rotation.x = Math.PI;
     flameR.visible = false;
     torsoGroup.add(flameL, flameR);
     secondaryNodes.jetFlames = [flameL, flameR];
 
-    // Head: Rounded Box Screen Head with Big Expressive LED Eyes
-    headGroup.position.set(0, 1.54, 0);
+    // Head: Cylindrical Dark Astronaut Helmet with Glowing Cyan Visor Screen
+    headGroup.position.set(0, 1.52, 0);
 
-    const headGeo = new THREE.BoxGeometry(0.4, 0.36, 0.36);
-    const headMesh = new THREE.Mesh(headGeo, botYellowMat);
-    headMesh.position.y = 0.05;
-    headGroup.add(headMesh);
+    const helmetGeo = new THREE.CylinderGeometry(0.22, 0.20, 0.36, 16);
+    const helmetMesh = new THREE.Mesh(helmetGeo, cyberDarkMat);
+    helmetMesh.position.y = 0.04;
+    headGroup.add(helmetMesh);
 
-    // Black Digital Faceplate Glass
-    const faceplateGeo = new THREE.BoxGeometry(0.34, 0.24, 0.03);
-    const faceplate = new THREE.Mesh(faceplateGeo, botDarkMat);
-    faceplate.position.set(0, 0.05, -0.182);
-    headGroup.add(faceplate);
+    // Helmet Top Dome
+    const domeGeo = new THREE.SphereGeometry(0.22, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    const dome = new THREE.Mesh(domeGeo, cyberDarkMat);
+    dome.position.y = 0.22;
+    headGroup.add(dome);
 
-    // Big Glowing Digital Emoji Eyes: Curved arch or circular LED dots
-    const ledEyeGeo = new THREE.TorusGeometry(0.045, 0.015, 8, 12, Math.PI);
-    const ledEyeL = new THREE.Mesh(ledEyeGeo, eyeLedMat);
-    ledEyeL.position.set(-0.08, 0.06, -0.198);
-    ledEyeL.rotation.z = Math.PI; // Happy curved eye `^`
-    const ledEyeR = new THREE.Mesh(ledEyeGeo, eyeLedMat);
-    ledEyeR.position.set(0.08, 0.06, -0.198);
-    ledEyeR.rotation.z = Math.PI;
-    headGroup.add(ledEyeL, ledEyeR);
+    // Glowing Curved Cyan Visor Lens Screen on front of helmet
+    const visorGeo = new THREE.BoxGeometry(0.3, 0.16, 0.06);
+    const visor = new THREE.Mesh(visorGeo, cyberCyanMat);
+    visor.position.set(0, 0.05, -0.19);
+    headGroup.add(visor);
 
-    secondaryNodes.eyeL = ledEyeL;
-    secondaryNodes.eyeR = ledEyeR;
+    // Side Headset Canister / Communicator (visible on left side of helmet in screenshot)
+    const canGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.12, 12);
+    const canister = new THREE.Mesh(canGeo, cyberDarkMat);
+    canister.rotation.z = Math.PI / 2;
+    canister.position.set(-0.23, 0.05, 0);
 
-    // Bouncy Antenna on top with glowing sphere bobble
-    const antennaGroup = new THREE.Group();
-    antennaGroup.position.set(0, 0.23, 0);
+    const canRingGeo = new THREE.TorusGeometry(0.065, 0.012, 6, 16);
+    const canRing = new THREE.Mesh(canRingGeo, cyberCyanMat);
+    canRing.rotation.y = Math.PI / 2;
+    canRing.position.set(-0.28, 0.05, 0);
+    headGroup.add(canister, canRing);
 
-    const mastGeo = new THREE.CylinderGeometry(0.015, 0.02, 0.2, 6);
-    const mast = new THREE.Mesh(mastGeo, botDarkMat);
-    mast.position.y = 0.1;
-    const bobbleGeo = new THREE.SphereGeometry(0.055, 8, 8);
-    const bobble = new THREE.Mesh(bobbleGeo, eyeLedMat);
-    bobble.position.y = 0.23;
-    antennaGroup.add(mast, bobble);
-    headGroup.add(antennaGroup);
-    secondaryNodes.antennaGroup = antennaGroup;
+    // Limbs: Sleek dark arms with cyan wristbands
+    leftArmGroup.position.set(-0.28, 1.30, 0);
+    rightArmGroup.position.set(0.28, 1.30, 0);
 
-    // Limbs: Cute segmented robot arms
-    leftArmGroup.position.set(-0.32, 1.32, 0);
-    rightArmGroup.position.set(0.32, 1.32, 0);
-
-    const bArmGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.44, 8);
-    const clawGeo = new THREE.BoxGeometry(0.12, 0.1, 0.12);
-
-    const lArm = new THREE.Mesh(bArmGeo, botDarkMat);
+    const bArmGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.44, 8);
+    const lArm = new THREE.Mesh(bArmGeo, cyberSuitMat);
     lArm.position.y = -0.22;
-    const lClaw = new THREE.Mesh(clawGeo, botYellowMat);
-    lClaw.position.y = -0.48;
-    leftArmGroup.add(lArm, lClaw);
+    const lBand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), cyberCyanMat);
+    lBand.position.y = -0.38;
+    leftArmGroup.add(lArm, lBand);
 
-    const rArm = new THREE.Mesh(bArmGeo, botDarkMat);
+    const rArm = new THREE.Mesh(bArmGeo, cyberSuitMat);
     rArm.position.y = -0.22;
-    const rClaw = new THREE.Mesh(clawGeo, botYellowMat);
-    rClaw.position.y = -0.48;
-    rightArmGroup.add(rArm, rClaw);
+    const rBand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), cyberCyanMat);
+    rBand.position.y = -0.38;
+    rightArmGroup.add(rArm, rBand);
 
-    // Legs: Chunky cute robotic legs
-    leftLegGroup.position.set(-0.16, 0.74, 0);
-    rightLegGroup.position.set(0.16, 0.74, 0);
+    // Legs: Slim dark cyber legs
+    leftLegGroup.position.set(-0.14, 0.74, 0);
+    rightLegGroup.position.set(0.14, 0.74, 0);
 
-    const bLegGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.48, 8);
-    const bFootGeo = new THREE.BoxGeometry(0.17, 0.14, 0.28);
-
-    const lLeg = new THREE.Mesh(bLegGeo, botDarkMat);
-    lLeg.position.y = -0.24;
+    const bLegGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.50, 8);
+    const lLeg = new THREE.Mesh(bLegGeo, cyberSuitMat);
+    lLeg.position.y = -0.25;
     leftLegGroup.add(lLeg);
 
-    const rLeg = new THREE.Mesh(bLegGeo, botDarkMat);
-    rLeg.position.y = -0.24;
+    const rLeg = new THREE.Mesh(bLegGeo, cyberSuitMat);
+    rLeg.position.y = -0.25;
     rightLegGroup.add(rLeg);
 
-    leftFootGroup.position.set(0, -0.64, -0.04);
-    const lFoot = new THREE.Mesh(bFootGeo, botYellowMat);
-    leftFootGroup.add(lFoot);
+    // Feet: Crisp clean WHITE cyber sneakers with dark rubber soles (just like in screenshot!)
+    leftFootGroup.position.set(0, -0.66, -0.04);
+    const lShoeTop = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.28), sneakerWhiteMat);
+    const lShoeSole = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.30), sneakerSoleMat);
+    lShoeSole.position.y = -0.07;
+    leftFootGroup.add(lShoeTop, lShoeSole);
 
-    rightFootGroup.position.set(0, -0.64, -0.04);
-    const rFoot = new THREE.Mesh(bFootGeo, botYellowMat);
-    rightFootGroup.add(rFoot);
+    rightFootGroup.position.set(0, -0.66, -0.04);
+    const rShoeTop = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.28), sneakerWhiteMat);
+    const rShoeSole = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.30), sneakerSoleMat);
+    rShoeSole.position.y = -0.07;
+    rightFootGroup.add(rShoeTop, rShoeSole);
   }
 
   // 2. Ground Contact Shadow
@@ -933,26 +1369,62 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
 
   // 3. Directional Navigation Arrow on Floor
   const arrowShape = new THREE.Shape();
-  arrowShape.moveTo(0, -0.9);
-  arrowShape.lineTo(0.2, -0.55);
-  arrowShape.lineTo(0.08, -0.55);
-  arrowShape.lineTo(0.08, 0);
-  arrowShape.lineTo(-0.08, 0);
-  arrowShape.lineTo(-0.08, -0.55);
-  arrowShape.lineTo(-0.2, -0.55);
+  arrowShape.moveTo(0, -1.05);
+  arrowShape.lineTo(0.22, -0.65);
+  arrowShape.lineTo(0.09, -0.65);
+  arrowShape.lineTo(0.09, 0);
+  arrowShape.lineTo(-0.09, 0);
+  arrowShape.lineTo(-0.09, -0.65);
+  arrowShape.lineTo(-0.22, -0.65);
   arrowShape.closePath();
 
   const arrowGeo = new THREE.ShapeGeometry(arrowShape);
   const arrowMat = new THREE.MeshBasicMaterial({
-    color: '#06b6d4',
+    color: '#38bdf8',
     transparent: true,
-    opacity: 0.75,
+    opacity: 0.85,
     depthWrite: false,
   });
   const arrowMesh = new THREE.Mesh(arrowGeo, arrowMat);
   arrowMesh.rotation.x = -Math.PI / 2;
   arrowMesh.position.y = 0.03;
   rootGroup.add(arrowMesh);
+
+  // 4. Glowing 3D Holographic Ground Reticle (Circle with 4 crosshair ticks & center dot)
+  const reticleGroup = new THREE.Group();
+  reticleGroup.position.set(0, 0.035, -0.75); // positioned right in front of runner on floor
+  reticleGroup.rotation.x = -Math.PI / 2;
+
+  const reticleMat = new THREE.MeshBasicMaterial({
+    color: '#00f0ff',
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+  });
+
+  // Main cyan ring
+  const reticleRing = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.40, 32), reticleMat);
+  reticleGroup.add(reticleRing);
+
+  // 4 Crosshair Tick Marks
+  const tickGeoH = new THREE.PlaneGeometry(0.14, 0.04);
+  const tickGeoV = new THREE.PlaneGeometry(0.04, 0.14);
+
+  const tickN = new THREE.Mesh(tickGeoV, reticleMat);
+  tickN.position.set(0, 0.44, 0);
+  const tickS = new THREE.Mesh(tickGeoV, reticleMat);
+  tickS.position.set(0, -0.44, 0);
+  const tickE = new THREE.Mesh(tickGeoH, reticleMat);
+  tickE.position.set(0.44, 0, 0);
+  const tickW = new THREE.Mesh(tickGeoH, reticleMat);
+  tickW.position.set(-0.44, 0, 0);
+  reticleGroup.add(tickN, tickS, tickE, tickW);
+
+  // Center Target Bead
+  const centerDot = new THREE.Mesh(new THREE.CircleGeometry(0.07, 16), reticleMat);
+  reticleGroup.add(centerDot);
+
+  rootGroup.add(reticleGroup);
 
   return {
     characterId,
@@ -966,6 +1438,10 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
     rightLegGroup,
     leftFootGroup,
     rightFootGroup,
+    leftForearmGroup: characterId === 'kaito' ? leftForearmGroup : undefined,
+    rightForearmGroup: characterId === 'kaito' ? rightForearmGroup : undefined,
+    leftCalfGroup: characterId === 'kaito' ? leftCalfGroup : undefined,
+    rightCalfGroup: characterId === 'kaito' ? rightCalfGroup : undefined,
     secondaryNodes,
     contactShadow,
     arrowMesh,
@@ -1037,6 +1513,11 @@ export function animateCharacterRig(
     rig.leftArmGroup.rotation.x = 0.6;
     rig.rightArmGroup.rotation.x = 0.6;
     rig.doubleJumpFlipProgress = 0;
+
+    if (rig.leftForearmGroup) rig.leftForearmGroup.rotation.x = THREE.MathUtils.damp(rig.leftForearmGroup.rotation.x, 0.85, 14, dt);
+    if (rig.rightForearmGroup) rig.rightForearmGroup.rotation.x = THREE.MathUtils.damp(rig.rightForearmGroup.rotation.x, 0.85, 14, dt);
+    if (rig.leftCalfGroup) rig.leftCalfGroup.rotation.x = THREE.MathUtils.damp(rig.leftCalfGroup.rotation.x, 0.65, 14, dt);
+    if (rig.rightCalfGroup) rig.rightCalfGroup.rotation.x = THREE.MathUtils.damp(rig.rightCalfGroup.rotation.x, 0.95, 14, dt);
   }
   // 2. Aerial Acrobatics / Jumping / Falling
   else if (!player.isGrounded) {
@@ -1051,6 +1532,11 @@ export function animateCharacterRig(
       rig.rightLegGroup.rotation.x = -0.8;
       rig.leftArmGroup.rotation.x = 1.2;
       rig.rightArmGroup.rotation.x = 1.2;
+
+      if (rig.leftForearmGroup) rig.leftForearmGroup.rotation.x = 1.1;
+      if (rig.rightForearmGroup) rig.rightForearmGroup.rotation.x = 1.1;
+      if (rig.leftCalfGroup) rig.leftCalfGroup.rotation.x = 1.2;
+      if (rig.rightCalfGroup) rig.rightCalfGroup.rotation.x = 1.2;
     } else {
       rig.doubleJumpFlipProgress = 0;
       // Normal jump / airborne glide
@@ -1059,30 +1545,80 @@ export function animateCharacterRig(
       rig.rightArmGroup.rotation.x = -0.55;
       rig.leftLegGroup.rotation.x = -0.35;
       rig.rightLegGroup.rotation.x = 0.25;
+
+      if (rig.leftForearmGroup) rig.leftForearmGroup.rotation.x = THREE.MathUtils.damp(rig.leftForearmGroup.rotation.x, 0.45, 12, dt);
+      if (rig.rightForearmGroup) rig.rightForearmGroup.rotation.x = THREE.MathUtils.damp(rig.rightForearmGroup.rotation.x, 0.45, 12, dt);
+      if (rig.leftCalfGroup) rig.leftCalfGroup.rotation.x = THREE.MathUtils.damp(rig.leftCalfGroup.rotation.x, 0.5, 12, dt);
+      if (rig.rightCalfGroup) rig.rightCalfGroup.rotation.x = THREE.MathUtils.damp(rig.rightCalfGroup.rotation.x, 0.35, 12, dt);
     }
   }
   // 3. Ground Locomotion (Walk / Sprint / Idle)
   else {
     rig.doubleJumpFlipProgress = 0;
 
-    // Torso bounce & forward lean proportional to velocity
-    const torsoBounce = isMoving ? Math.abs(Math.sin(time * runFreq)) * 0.06 : 0;
-    rig.innerBodyGroup.position.y = THREE.MathUtils.damp(rig.innerBodyGroup.position.y, torsoBounce, 15, dt);
-    const forwardLean = isMoving ? Math.min(0.28, 0.08 + player.speed * 0.012) : 0;
-    rig.innerBodyGroup.rotation.x = THREE.MathUtils.damp(rig.innerBodyGroup.rotation.x, forwardLean, 10, dt);
+    if (isMoving) {
+      // Torso bounce & forward lean proportional to velocity
+      const torsoBounce = Math.abs(Math.sin(time * runFreq)) * 0.06;
+      rig.innerBodyGroup.position.y = THREE.MathUtils.damp(rig.innerBodyGroup.position.y, torsoBounce, 15, dt);
+      const forwardLean = Math.min(0.28, 0.08 + player.speed * 0.012);
+      rig.innerBodyGroup.rotation.x = THREE.MathUtils.damp(rig.innerBodyGroup.rotation.x, forwardLean, 10, dt);
 
-    // Humanoid / cartoon arm and leg swings with natural phase opposition
-    const armSwing = isMoving ? Math.sin(time * runFreq) * 0.85 : 0;
-    const legSwing = isMoving ? Math.sin(time * runFreq) * 0.95 : 0;
+      // Arm and leg swings with natural phase opposition
+      const armSwing = Math.sin(time * runFreq) * 0.85;
+      const legSwing = Math.sin(time * runFreq) * 0.95;
 
-    rig.leftArmGroup.rotation.x = armSwing;
-    rig.rightArmGroup.rotation.x = -armSwing;
-    rig.leftLegGroup.rotation.x = -legSwing;
-    rig.rightLegGroup.rotation.x = legSwing;
+      rig.leftArmGroup.rotation.x = armSwing;
+      rig.rightArmGroup.rotation.x = -armSwing;
+      rig.leftLegGroup.rotation.x = -legSwing;
+      rig.rightLegGroup.rotation.x = legSwing;
 
-    // Subtle head bob
-    const headBob = isMoving ? Math.sin(time * runFreq * 2) * 0.04 : Math.sin(time * 2) * 0.02;
-    rig.headGroup.rotation.x = headBob;
+      // Realistic Human Locomotion:
+      // 1. Torso counter-twist relative to hip stride
+      rig.innerBodyGroup.rotation.y = THREE.MathUtils.damp(rig.innerBodyGroup.rotation.y, -legSwing * 0.12, 12, dt);
+
+      // 2. Elbow flexion: deep bend on forward drive, extension on rear swing
+      const lElbow = Math.max(0.35, 0.75 + armSwing * 0.42);
+      const rElbow = Math.max(0.35, 0.75 - armSwing * 0.42);
+      if (rig.leftForearmGroup) rig.leftForearmGroup.rotation.x = THREE.MathUtils.damp(rig.leftForearmGroup.rotation.x, lElbow, 16, dt);
+      if (rig.rightForearmGroup) rig.rightForearmGroup.rotation.x = THREE.MathUtils.damp(rig.rightForearmGroup.rotation.x, rElbow, 16, dt);
+
+      // 3. Knee flexion: calf folds backwards during backward recovery stride
+      const lKnee = legSwing < 0 ? Math.min(1.25, -legSwing * 1.35) : 0;
+      const rKnee = legSwing > 0 ? Math.min(1.25, legSwing * 1.35) : 0;
+      if (rig.leftCalfGroup) rig.leftCalfGroup.rotation.x = THREE.MathUtils.damp(rig.leftCalfGroup.rotation.x, lKnee, 18, dt);
+      if (rig.rightCalfGroup) rig.rightCalfGroup.rotation.x = THREE.MathUtils.damp(rig.rightCalfGroup.rotation.x, rKnee, 18, dt);
+
+      // 4. Foot ankle dorsiflexion / heel strike
+      rig.leftFootGroup.rotation.x = THREE.MathUtils.damp(rig.leftFootGroup.rotation.x, legSwing > 0 ? 0.22 : -0.18, 16, dt);
+      rig.rightFootGroup.rotation.x = THREE.MathUtils.damp(rig.rightFootGroup.rotation.x, legSwing < 0 ? 0.22 : -0.18, 16, dt);
+
+      // Subtle head bob
+      const headBob = Math.sin(time * runFreq * 2) * 0.04;
+      rig.headGroup.rotation.x = headBob;
+    } else {
+      // Realistic Idle: Natural breathing & relaxed posture
+      const breath = Math.sin(time * 2.2);
+      rig.torsoGroup.scale.set(1.0 + breath * 0.015, 1.0 + breath * 0.012, 1.0 + breath * 0.02);
+      rig.headGroup.position.y = 1.54 + breath * 0.005;
+
+      rig.innerBodyGroup.position.y = THREE.MathUtils.damp(rig.innerBodyGroup.position.y, 0, 10, dt);
+      rig.innerBodyGroup.rotation.x = THREE.MathUtils.damp(rig.innerBodyGroup.rotation.x, 0, 10, dt);
+      rig.innerBodyGroup.rotation.y = THREE.MathUtils.damp(rig.innerBodyGroup.rotation.y, 0, 10, dt);
+
+      rig.leftArmGroup.rotation.x = THREE.MathUtils.damp(rig.leftArmGroup.rotation.x, 0.05, 10, dt);
+      rig.rightArmGroup.rotation.x = THREE.MathUtils.damp(rig.rightArmGroup.rotation.x, 0.05, 10, dt);
+      rig.leftLegGroup.rotation.x = THREE.MathUtils.damp(rig.leftLegGroup.rotation.x, 0, 10, dt);
+      rig.rightLegGroup.rotation.x = THREE.MathUtils.damp(rig.rightLegGroup.rotation.x, 0, 10, dt);
+
+      if (rig.leftForearmGroup) rig.leftForearmGroup.rotation.x = THREE.MathUtils.damp(rig.leftForearmGroup.rotation.x, 0.15, 10, dt);
+      if (rig.rightForearmGroup) rig.rightForearmGroup.rotation.x = THREE.MathUtils.damp(rig.rightForearmGroup.rotation.x, 0.15, 10, dt);
+      if (rig.leftCalfGroup) rig.leftCalfGroup.rotation.x = THREE.MathUtils.damp(rig.leftCalfGroup.rotation.x, 0, 10, dt);
+      if (rig.rightCalfGroup) rig.rightCalfGroup.rotation.x = THREE.MathUtils.damp(rig.rightCalfGroup.rotation.x, 0, 10, dt);
+
+      rig.leftFootGroup.rotation.x = THREE.MathUtils.damp(rig.leftFootGroup.rotation.x, 0, 10, dt);
+      rig.rightFootGroup.rotation.x = THREE.MathUtils.damp(rig.rightFootGroup.rotation.x, 0, 10, dt);
+      rig.headGroup.rotation.x = Math.sin(time * 2) * 0.015;
+    }
   }
 
   // Wall-run lateral tilt

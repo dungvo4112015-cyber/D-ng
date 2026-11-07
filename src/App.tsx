@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { CameraMode, CharacterId, GameState, PlayerPhysicsState, RunStats, Vector3D } from './game/types';
+import { CameraMode, CharacterId, EndlessRunStats, GameMode, GameState, LevelDefinition, PlayerPhysicsState, RunStats, Vector3D } from './game/types';
 import { LEVELS } from './game/levels';
 import { ParkourRenderer } from './game/renderer';
 import {
@@ -15,6 +15,14 @@ import {
   PHYSICS_CONSTANTS,
   resolveBoxCollision,
 } from './game/rules';
+import {
+  calculateEndlessScore,
+  calculateSpeedMultiplier,
+  ENDLESS_BIOMES,
+  EndlessChunk,
+  EndlessTrackGenerator,
+  getEndlessBiome,
+} from './game/endless';
 import { sounds } from './game/sound';
 import { HUD } from './components/HUD';
 import { GameOverModal, PauseModal, TitleScreen, TrapEncyclopediaModal, VictoryModal } from './components/Modals';
@@ -26,16 +34,34 @@ export default function App() {
 
   // High-level game state
   const [gameState, setGameState] = useState<GameState>('title');
+  const [gameMode, setGameMode] = useState<GameMode>('endless');
   const [currentLevelId, setCurrentLevelId] = useState<number>(1);
   const [selectedCharacterId, setSelectedCharacterId] = useState<CharacterId>(() => {
-    return (localStorage.getItem('acro_character') as CharacterId) || 'kaito';
+    return (localStorage.getItem('acro_character') as CharacterId) || 'sparky';
   });
   const cameraMode: CameraMode = 'third_person';
   const [mouseControlMode, setMouseControlMode] = useState<'mouse_follow' | 'pointer_lock'>('pointer_lock');
   const [isPointerLocked, setIsPointerLocked] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isAutoRunning, setIsAutoRunning] = useState<boolean>(false);
   const [defeatReason, setDefeatReason] = useState<'fall' | 'trap'>('fall');
   const [defeatTrapInfo, setDefeatTrapInfo] = useState<{ type?: string; name?: string; tip?: string } | null>(null);
+
+  // Endless mode records and stats
+  const [endlessBestDistance, setEndlessBestDistance] = useState<number>(() => {
+    return parseInt(localStorage.getItem('acro_endless_best_dist') || '0', 10);
+  });
+  const [endlessBestScore, setEndlessBestScore] = useState<number>(() => {
+    return parseInt(localStorage.getItem('acro_endless_best_score') || '0', 10);
+  });
+  const [endlessStats, setEndlessStats] = useState<EndlessRunStats | null>(null);
+  const [endlessHud, setEndlessHud] = useState({
+    distance: 0,
+    score: 0,
+    multiplier: 1.0,
+    biomeName: ENDLESS_BIOMES[0].name,
+    biomeColor: ENDLESS_BIOMES[0].color,
+  });
 
   const handleSelectCharacter = (id: CharacterId) => {
     setSelectedCharacterId(id);
@@ -46,7 +72,7 @@ export default function App() {
   };
 
   const cycleCharacter = () => {
-    const list: CharacterId[] = ['kaito', 'kibo', 'aoi', 'sparky'];
+    const list: CharacterId[] = ['sparky', 'kaito', 'kibo', 'aoi'];
     const nextIdx = (list.indexOf(selectedCharacterId) + 1) % list.length;
     handleSelectCharacter(list[nextIdx]);
   };
@@ -73,6 +99,14 @@ export default function App() {
   // Mutable game simulation state held in ref (decoupled from React renders)
   const simRef = useRef({
     gameState: 'title' as GameState,
+    gameMode: 'endless' as GameMode,
+    isAutoRunning: false,
+    endlessDistance: 0,
+    endlessScore: 0,
+    endlessMultiplier: 1.0,
+    endlessStuntBonus: 0,
+    endlessActiveChunks: [] as EndlessChunk[],
+    endlessGenerator: new EndlessTrackGenerator(),
     level: currentLevel,
     player: {
       position: { ...currentLevel.spawnPoint },
@@ -124,11 +158,13 @@ export default function App() {
 
   // Keep ref in sync with active level
   useEffect(() => {
-    simRef.current.level = currentLevel;
-    simRef.current.checkpointPos = { ...currentLevel.spawnPoint };
-    simRef.current.checkpointYaw = currentLevel.spawnYaw;
-    if (rendererRef.current) {
-      rendererRef.current.loadLevel(currentLevel);
+    if (simRef.current.gameMode === 'levels') {
+      simRef.current.level = currentLevel;
+      simRef.current.checkpointPos = { ...currentLevel.spawnPoint };
+      simRef.current.checkpointYaw = currentLevel.spawnYaw;
+      if (rendererRef.current) {
+        rendererRef.current.loadLevel(currentLevel);
+      }
     }
   }, [currentLevelId, currentLevel]);
 
@@ -166,7 +202,31 @@ export default function App() {
     const parkourRenderer = new ParkourRenderer(mountRef.current);
     rendererRef.current = parkourRenderer;
     parkourRenderer.setCharacter(selectedCharacterId);
-    parkourRenderer.loadLevel(simRef.current.level);
+
+    if (simRef.current.gameMode === 'endless') {
+      const chunks = simRef.current.endlessGenerator.generateInitialTrack();
+      simRef.current.endlessActiveChunks = chunks;
+      const initialColliders = chunks.flatMap((c) => c.colliders);
+      const endlessLevel: LevelDefinition = {
+        id: 9999,
+        slug: 'endless-track',
+        name: 'Đường Chạy Vô Tận',
+        subtitle: 'Chạy không giới hạn',
+        description: 'Vượt qua chướng ngại và tiến xa nhất có thể trong thế giới Cyberpunk',
+        archetype: 'speed_freeway',
+        archetypeLabel: 'Vô Tận',
+        targetTimes: { gold: 999, silver: 999, bronze: 999 },
+        spawnPoint: { x: 0, y: 1.5, z: 0 },
+        spawnYaw: 0,
+        finishPoint: { x: 0, y: 0, z: -99999 },
+        colliders: initialColliders,
+        skyTheme: 'cyber',
+      };
+      simRef.current.level = endlessLevel;
+      parkourRenderer.loadLevel(endlessLevel);
+    } else {
+      parkourRenderer.loadLevel(simRef.current.level);
+    }
 
     if (autostart) {
       startGame();
@@ -184,8 +244,8 @@ export default function App() {
       sim.lastTime = now;
       const dt = Math.min(rawDt, 0.05);
 
-      // Handle animated platforms
-      parkourRenderer.updateAnimatedPlatforms(now * 0.001);
+      // Handle animated platforms and realistic traps
+      parkourRenderer.updateAnimatedPlatforms(now * 0.001, dt);
 
       if (sim.gameState === 'playing') {
         sim.elapsedTime += dt;
@@ -210,6 +270,17 @@ export default function App() {
           currentAction: sim.player.currentAction,
           wallRunSide: sim.player.wallRunSide,
         });
+
+        if (sim.gameMode === 'endless') {
+          const biome = getEndlessBiome(sim.endlessDistance);
+          setEndlessHud({
+            distance: sim.endlessDistance,
+            score: sim.endlessScore,
+            multiplier: sim.endlessMultiplier,
+            biomeName: biome.name,
+            biomeColor: biome.color,
+          });
+        }
       }
 
       // Render frame
@@ -269,10 +340,10 @@ export default function App() {
       }
     }
 
-    // 3. Movement intent vectors (WASD or Hold Left Click towards center reticle)
+    // 3. Movement intent vectors (WASD or Hold Left Click towards center reticle or Auto-Run [Q])
     let moveForward = 0;
     let moveRight = 0;
-    if (keys.has('KeyW') || keys.has('ArrowUp') || sim.isLeftMouseDown) {
+    if (keys.has('KeyW') || keys.has('ArrowUp') || sim.isLeftMouseDown || sim.isAutoRunning) {
       moveForward += 1;
     }
     if (keys.has('KeyS') || keys.has('ArrowDown')) moveForward -= 1;
@@ -403,6 +474,36 @@ export default function App() {
     p.speed = Math.sqrt(p.velocity.x * p.velocity.x + p.velocity.z * p.velocity.z);
     if (p.speed > p.stats.maxSpeedReached) {
       p.stats.maxSpeedReached = p.speed;
+    }
+
+    if (sim.gameMode === 'endless') {
+      const dist = Math.max(0, -p.position.z);
+      if (dist > sim.endlessDistance) {
+        sim.endlessDistance = Math.floor(dist);
+      }
+      sim.endlessMultiplier = calculateSpeedMultiplier(p.speed, p.isDashing);
+      sim.endlessScore = calculateEndlessScore(sim.endlessDistance, sim.endlessMultiplier, sim.endlessStuntBonus);
+
+      // Procedural chunk streaming ahead (when runner gets within 130m of track end)
+      const lastChunk = sim.endlessActiveChunks[sim.endlessActiveChunks.length - 1];
+      if (lastChunk && p.position.z - 130 < lastChunk.endZ) {
+        const nextChunk = sim.endlessGenerator.generateNextChunk();
+        sim.endlessActiveChunks.push(nextChunk);
+        sim.level.colliders.push(...nextChunk.colliders);
+        rendererRef.current?.appendColliders(nextChunk.colliders);
+      }
+
+      // Cull far behind chunks (>80m behind runner)
+      if (sim.endlessActiveChunks.length > 3) {
+        const firstChunk = sim.endlessActiveChunks[0];
+        if (firstChunk && firstChunk.endZ > p.position.z + 80) {
+          sim.endlessActiveChunks.shift();
+          const idsToRemove = firstChunk.colliders.map((c) => c.id);
+          const idSet = new Set(idsToRemove);
+          sim.level.colliders = sim.level.colliders.filter((c) => !idSet.has(c.id));
+          rendererRef.current?.removeColliders(idsToRemove);
+        }
+      }
     }
 
     // 8. Collision detection & Resolution against level colliders
@@ -619,6 +720,33 @@ export default function App() {
     } else {
       sounds.playFall();
     }
+
+    if (sim.gameMode === 'endless') {
+      const dist = sim.endlessDistance;
+      const score = sim.endlessScore;
+      const isNew = dist > endlessBestDistance;
+      if (isNew) {
+        setEndlessBestDistance(dist);
+        setEndlessBestScore(score);
+        localStorage.setItem('acro_endless_best_dist', dist.toString());
+        localStorage.setItem('acro_endless_best_score', score.toString());
+      }
+      const biome = getEndlessBiome(dist);
+      setEndlessStats({
+        distance: dist,
+        score,
+        maxSpeed: sim.player.stats.maxSpeedReached,
+        jumps: sim.player.stats.jumps,
+        wallRuns: sim.player.stats.wallRuns,
+        slides: sim.player.stats.slides,
+        dashes: sim.player.stats.dashes,
+        biomeName: biome.name,
+        isNewRecord: isNew,
+        bestDistance: isNew ? dist : endlessBestDistance,
+        bestScore: isNew ? score : endlessBestScore,
+      });
+    }
+
     setGameState('gameover');
     setRunStats(null); // Indicates fall / incomplete
   };
@@ -660,6 +788,14 @@ export default function App() {
 
       if (e.code === 'KeyM') {
         toggleMute();
+        return;
+      }
+
+      if (e.code === 'KeyQ' && simRef.current.gameState === 'playing') {
+        e.preventDefault();
+        const nextAuto = !simRef.current.isAutoRunning;
+        simRef.current.isAutoRunning = nextAuto;
+        setIsAutoRunning(nextAuto);
         return;
       }
 
@@ -755,27 +891,77 @@ export default function App() {
       document.removeEventListener('pointerlockchange', onPointerLockChange);
       window.removeEventListener('blur', onBlur);
     };
-  }, [runStats]);
+  }, [runStats, endlessBestDistance]);
 
   // Actions
-  const startGame = () => {
+  const startGame = (modeOverride?: GameMode | unknown) => {
+    const targetMode: GameMode =
+      modeOverride === 'endless' || modeOverride === 'levels' ? modeOverride : gameMode;
     const sim = simRef.current;
-    sim.player.position = { ...sim.level.spawnPoint };
-    sim.player.velocity = { x: 0, y: 0, z: 0 };
-    sim.player.rotation.yaw = sim.level.spawnYaw;
-    sim.player.rotation.pitch = 0;
-    sim.player.isGrounded = true;
-    sim.player.isWallRunning = false;
-    sim.player.isSliding = false;
-    sim.player.isDashing = false;
-    sim.player.dashCharges = 1;
-    sim.player.jumpsRemaining = 2;
-    sim.player.maxJumps = 2;
-    sim.player.stats = { jumps: 0, wallRuns: 0, slides: 0, dashes: 0, maxSpeedReached: 0 };
-    sim.checkpointPos = { ...sim.level.spawnPoint };
-    sim.checkpointYaw = sim.level.spawnYaw;
-    sim.elapsedTime = 0;
-    sim.keys.clear();
+    sim.gameMode = targetMode;
+
+    if (targetMode === 'endless') {
+      const chunks = sim.endlessGenerator.generateInitialTrack();
+      sim.endlessActiveChunks = chunks;
+      const initialColliders = chunks.flatMap((c) => c.colliders);
+      const endlessLevel: LevelDefinition = {
+        id: 9999,
+        slug: 'endless-track',
+        name: 'Đường Chạy Vô Tận',
+        subtitle: 'Chạy không giới hạn',
+        description: 'Vượt qua chướng ngại và tiến xa nhất có thể trong thế giới Cyberpunk',
+        archetype: 'speed_freeway',
+        archetypeLabel: 'Vô Tận',
+        targetTimes: { gold: 999, silver: 999, bronze: 999 },
+        spawnPoint: { x: 0, y: 1.5, z: 0 },
+        spawnYaw: 0,
+        finishPoint: { x: 0, y: 0, z: -99999 },
+        colliders: initialColliders,
+        skyTheme: 'cyber',
+      };
+      sim.level = endlessLevel;
+      rendererRef.current?.loadLevel(endlessLevel);
+      sim.player.position = { x: 0, y: 1.5, z: 0 };
+      sim.player.velocity = { x: 0, y: 0, z: 0 };
+      sim.player.rotation.yaw = 0;
+      sim.player.rotation.pitch = 0;
+      sim.player.isGrounded = true;
+      sim.player.isWallRunning = false;
+      sim.player.isSliding = false;
+      sim.player.isDashing = false;
+      sim.player.dashCharges = 1;
+      sim.player.jumpsRemaining = 2;
+      sim.player.maxJumps = 2;
+      sim.player.stats = { jumps: 0, wallRuns: 0, slides: 0, dashes: 0, maxSpeedReached: 0 };
+      sim.checkpointPos = { x: 0, y: 1.5, z: 0 };
+      sim.checkpointYaw = 0;
+      sim.elapsedTime = 0;
+      sim.endlessDistance = 0;
+      sim.endlessScore = 0;
+      sim.endlessMultiplier = 1.0;
+      sim.endlessStuntBonus = 0;
+      sim.keys.clear();
+      setEndlessStats(null);
+    } else {
+      sim.level = currentLevel;
+      rendererRef.current?.loadLevel(currentLevel);
+      sim.player.position = { ...currentLevel.spawnPoint };
+      sim.player.velocity = { x: 0, y: 0, z: 0 };
+      sim.player.rotation.yaw = currentLevel.spawnYaw;
+      sim.player.rotation.pitch = 0;
+      sim.player.isGrounded = true;
+      sim.player.isWallRunning = false;
+      sim.player.isSliding = false;
+      sim.player.isDashing = false;
+      sim.player.dashCharges = 1;
+      sim.player.jumpsRemaining = 2;
+      sim.player.maxJumps = 2;
+      sim.player.stats = { jumps: 0, wallRuns: 0, slides: 0, dashes: 0, maxSpeedReached: 0 };
+      sim.checkpointPos = { ...currentLevel.spawnPoint };
+      sim.checkpointYaw = currentLevel.spawnYaw;
+      sim.elapsedTime = 0;
+      sim.keys.clear();
+    }
 
     setRunStats(null);
     setGameState('playing');
@@ -792,6 +978,11 @@ export default function App() {
 
   const respawnCheckpoint = () => {
     const sim = simRef.current;
+    if (sim.gameMode === 'endless') {
+      startGame('endless');
+      return;
+    }
+
     sim.player.position = { ...sim.checkpointPos };
     sim.player.velocity = { x: 0, y: 0, z: 0 };
     sim.player.rotation.yaw = sim.checkpointYaw;
@@ -815,7 +1006,7 @@ export default function App() {
   };
 
   const restartLevel = () => {
-    startGame();
+    startGame(gameMode);
   };
 
   const nextLevel = () => {
@@ -909,6 +1100,14 @@ export default function App() {
           isPointerLocked={isPointerLocked}
           isMuted={isMuted}
           selectedCharacterId={selectedCharacterId}
+          gameMode={gameMode}
+          endlessDistance={endlessHud.distance}
+          endlessScore={endlessHud.score}
+          endlessMultiplier={endlessHud.multiplier}
+          endlessBestDistance={endlessBestDistance}
+          endlessBiomeName={endlessHud.biomeName}
+          endlessBiomeColor={endlessHud.biomeColor}
+          isAutoRunning={isAutoRunning}
           onSelectCharacter={handleSelectCharacter}
           onToggleCamera={toggleCameraMode}
           onToggleMouseControlMode={toggleMouseControlMode}
@@ -925,12 +1124,16 @@ export default function App() {
           levels={LEVELS}
           selectedLevelId={currentLevelId}
           onSelectLevel={setCurrentLevelId}
-          onStartGame={startGame}
+          onStartGame={() => startGame()}
           cameraMode={cameraMode}
           onToggleCamera={toggleCameraMode}
           onOpenTrapsCodex={() => setIsTrapsCodexOpen(true)}
           selectedCharacterId={selectedCharacterId}
           onSelectCharacter={handleSelectCharacter}
+          gameMode={gameMode}
+          onSelectGameMode={(mode) => setGameMode(mode)}
+          endlessBestDistance={endlessBestDistance}
+          endlessBestScore={endlessBestScore}
         />
       )}
 
@@ -961,9 +1164,15 @@ export default function App() {
             <GameOverModal
               reason={defeatReason}
               trapInfo={defeatTrapInfo}
+              gameMode={gameMode}
+              endlessStats={endlessStats}
               onRespawn={respawnCheckpoint}
               onRestart={restartLevel}
               onQuitToTitle={quitToTitle}
+              onSwitchMode={(mode) => {
+                setGameMode(mode);
+                startGame(mode);
+              }}
               onOpenTrapsCodex={() => setIsTrapsCodexOpen(true)}
             />
           )}

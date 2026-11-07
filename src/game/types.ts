@@ -97,12 +97,24 @@ export interface PlayerPhysicsState {
   };
 }
 
+export type LevelArchetype =
+  | 'speed_freeway'
+  | 'wall_run'
+  | 'tower_climb'
+  | 'precision_chasm'
+  | 'trap_gauntlet'
+  | 'slide_tunnel'
+  | 'cliff_dive'
+  | 'grand_master';
+
 export interface LevelDefinition {
   id: number;
   slug: string;
   name: string;
   subtitle: string;
   description: string;
+  archetype: LevelArchetype;
+  archetypeLabel: string;
   targetTimes: {
     gold: number; // seconds
     silver: number;
@@ -115,6 +127,8 @@ export interface LevelDefinition {
   skyTheme: 'dawn' | 'zenith' | 'sunset' | 'cyber' | 'emerald' | 'crimson' | 'midnight' | 'neon';
 }
 
+export type GameMode = 'levels' | 'endless';
+
 export interface RunStats {
   levelId: number;
   levelName: string;
@@ -126,4 +140,18 @@ export interface RunStats {
   dashes: number;
   maxSpeed: number;
   isVictory: boolean;
+}
+
+export interface EndlessRunStats {
+  distance: number;
+  score: number;
+  maxSpeed: number;
+  jumps: number;
+  wallRuns: number;
+  slides: number;
+  dashes: number;
+  biomeName: string;
+  isNewRecord: boolean;
+  bestDistance: number;
+  bestScore: number;
 }

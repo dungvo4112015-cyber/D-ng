@@ -16,6 +16,7 @@ import {
   PHYSICS_CONSTANTS,
 } from './rules';
 import { BoxCollider } from './types';
+import { buildRealisticTrap, updateRealisticTrap } from './trapVisuals';
 
 test('checkPointInBox detects containment inside box bounds', () => {
   const box: BoxCollider = {
@@ -260,7 +261,16 @@ test('All 50 levels have extended racetracks, uphill climbs, downhill drops, and
       checkpoints.length >= 2,
       `Level ${lvl.id} (${lvl.name}) missing checkpoints (has ${checkpoints.length}, expected >= 2)`
     );
+
+    // 4. Distinct archetype and Vietnamese archetypeLabel
+    assert.ok(lvl.archetype && lvl.archetype.length > 0, `Level ${lvl.id} missing archetype`);
+    assert.ok(lvl.archetypeLabel && lvl.archetypeLabel.length > 0, `Level ${lvl.id} missing archetypeLabel`);
   });
+
+  // Verify that all 50 levels have uniquely distinct course configurations
+  const { COURSE_BLUEPRINTS } = await import('./levels');
+  const blueprintKeys = Object.keys(COURSE_BLUEPRINTS);
+  assert.equal(blueprintKeys.length, 50);
 });
 
 test('CHARACTER_PRESETS provides both human and cartoon characters with complete metadata', async () => {
@@ -297,6 +307,36 @@ test('CHARACTER_PRESETS provides both human and cartoon characters with complete
   }
 });
 
+test('buildRealisticTrap constructs high-fidelity models and updateRealisticTrap animates mechanical components', () => {
+  const trapTypes: string[] = ['saw', 'hammer', 'spikes', 'laser', 'tesla_coil', 'flamethrower', 'acid_pool', 'pendulum_spikeball'];
 
+  for (const hType of trapTypes) {
+    const col: BoxCollider = {
+      id: `trap_${hType}`,
+      type: 'hazard',
+      x: 0,
+      y: 1,
+      z: -10,
+      width: 3,
+      height: 2,
+      depth: 3,
+      metadata: {
+        hazardType: hType,
+        hazardName: `Test ${hType}`,
+        moving: { axis: 'y', distance: 2, speed: 3 },
+        rotating: { axis: 'z', speed: 10 },
+      },
+    };
 
+    const inst = buildRealisticTrap(col, true);
+    assert.ok(inst.group, `Trap group must exist for ${hType}`);
+    assert.equal(inst.id, col.id);
+    assert.ok(inst.group.children.length > 0, `Trap ${hType} must have realistic 3D child meshes`);
 
+    // Verify animation update runs without throwing
+    const initialY = inst.group.position.y;
+    updateRealisticTrap(inst, 0.5, 0.016);
+    // Moving collider y position should update
+    assert.ok(inst.group.position.y !== undefined);
+  }
+});

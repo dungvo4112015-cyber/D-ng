@@ -4,27 +4,30 @@
  */
 
 import React, { useState } from 'react';
-import { CameraMode, CharacterId, LevelDefinition, RunStats } from '../game/types';
+import { CameraMode, CharacterId, EndlessRunStats, GameMode, LevelDefinition, RunStats } from '../game/types';
 import { formatGameTime } from '../game/rules';
 import { ALL_50_TRAPS, getTrapDefinition, TrapCategory } from '../game/traps';
 import { CHARACTER_PRESETS } from '../game/character';
+import { ENDLESS_BIOMES } from '../game/endless';
 
 export const CharacterAvatarIcon: React.FC<{ characterId: CharacterId; className?: string }> = ({
   characterId,
   className = 'w-6 h-6',
 }) => {
   if (characterId === 'kaito') {
-    // Human boy with hoodie and backwards cap
+    // Realistic athletic parkour human runner
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="10" r="6" fill="#fed7aa" />
-        <path d="M6 10C6 6.686 8.686 4 12 4C15.314 4 18 6.686 18 10H6Z" fill="#0f172a" />
-        <rect x="16" y="8" width="5" height="3" rx="1.5" fill="#0f172a" />
-        <circle cx="9.5" cy="10.5" r="1.2" fill="#2563eb" />
-        <circle cx="14.5" cy="10.5" r="1.2" fill="#2563eb" />
-        <path d="M10.5 13C11 13.7 13 13.7 13.5 13" stroke="#be123c" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M5 21C5 17.5 8 16 12 16C16 16 19 17.5 19 21" fill="#dc2626" />
-        <path d="M12 16V21" stroke="#ffffff" strokeWidth="1.2" />
+        <circle cx="12" cy="10" r="5.5" fill="#f5c6a5" />
+        <path d="M6.5 9.8C6.5 6.2 9 4 12 4C15 4 17.5 6.2 17.5 9.8H6.5Z" fill="#251610" />
+        <path d="M6.8 9.2H17.2V10.8H6.8Z" fill="#0f172a" />
+        <circle cx="9.6" cy="11.6" r="1.1" fill="#1e40af" />
+        <circle cx="14.4" cy="11.6" r="1.1" fill="#1e40af" />
+        <circle cx="9.3" cy="11.2" r="0.4" fill="#ffffff" />
+        <circle cx="14.1" cy="11.2" r="0.4" fill="#ffffff" />
+        <path d="M10.8 13.8C11.3 14.2 12.7 14.2 13.2 13.8" stroke="#c96a60" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M5 21C5 17 8 15.5 12 15.5C16 15.5 19 17 19 21" fill="#dc2626" />
+        <path d="M12 15.5V21" stroke="#f8fafc" strokeWidth="1.2" />
       </svg>
     );
   }
@@ -90,6 +93,10 @@ interface TitleScreenProps {
   onOpenTrapsCodex?: () => void;
   selectedCharacterId: CharacterId;
   onSelectCharacter: (id: CharacterId) => void;
+  gameMode?: GameMode;
+  onSelectGameMode?: (mode: GameMode) => void;
+  endlessBestDistance?: number;
+  endlessBestScore?: number;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -102,6 +109,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onOpenTrapsCodex,
   selectedCharacterId,
   onSelectCharacter,
+  gameMode = 'levels',
+  onSelectGameMode,
+  endlessBestDistance = 0,
+  endlessBestScore = 0,
 }) => {
   const currentSelectedLevel = levels.find((l) => l.id === selectedLevelId) || levels[0];
   const activeChar = CHARACTER_PRESETS[selectedCharacterId] || CHARACTER_PRESETS.kaito;
@@ -126,8 +137,86 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </p>
       </div>
 
-      {/* Center Stage & Level Selection Box */}
-      <div className="w-full max-w-3xl bg-slate-900/95 border border-slate-800 rounded-xl p-4 sm:p-6 shadow-2xl flex flex-col gap-3.5 backdrop-blur-none">
+      {/* Center Stage & Game Mode Box */}
+      <div className="w-full max-w-3xl bg-slate-900/95 border border-slate-800 rounded-xl p-4 sm:p-5 shadow-2xl flex flex-col gap-3 backdrop-blur-none">
+        {/* Game Mode Selector Bar */}
+        <div className="flex items-center gap-2 bg-slate-950/90 p-1.5 rounded-xl border border-slate-800/90">
+          <button
+            type="button"
+            onClick={() => onSelectGameMode?.('levels')}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-mono font-bold uppercase transition flex items-center justify-center gap-2 cursor-pointer ${
+              gameMode === 'levels'
+                ? 'bg-orange-500 text-slate-950 shadow-md ring-2 ring-orange-400/50'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <span>🏆 50 MÀN CHIẾN DỊCH</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectGameMode?.('endless')}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-mono font-bold uppercase transition flex items-center justify-center gap-2 cursor-pointer ${
+              gameMode === 'endless'
+                ? 'bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300/60'
+                : 'text-amber-400/80 hover:text-amber-300 hover:bg-slate-800/60'
+            }`}
+          >
+            <span className="text-sm">⚡</span>
+            <span>CHẠY VÔ TẬN (ENDLESS ∞)</span>
+            {endlessBestDistance > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-950/40 text-slate-900 font-black">
+                {endlessBestDistance}m
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* TOP HERO: Primary PLAY Button */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap pb-2 border-b border-slate-800/90">
+          <button
+            type="button"
+            data-start="true"
+            onClick={onStartGame}
+            className="flex-1 min-w-[240px] py-3.5 px-6 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-400 hover:to-amber-400 active:from-orange-600 active:to-amber-600 text-slate-950 font-black text-sm sm:text-base uppercase tracking-wider rounded-xl transition-all shadow-xl shadow-orange-500/25 flex items-center justify-center gap-2.5 group cursor-pointer ring-2 ring-orange-400/40"
+          >
+            <svg className="w-5 h-5 fill-current transform group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            {gameMode === 'endless' ? (
+              <span>BẮT ĐẦU CHẠY VÔ TẬN — THỬ THÁCH VÔ CỰC [SPACE / ENTER]</span>
+            ) : (
+              <span>CHƠI NGAY — MÀN {currentSelectedLevel.id}: {currentSelectedLevel.name}</span>
+            )}
+            <svg
+              className="w-4 h-4 transform group-hover:translate-x-1.5 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
+
+          {onOpenTrapsCodex && (
+            <button
+              type="button"
+              onClick={onOpenTrapsCodex}
+              className="px-3 py-3.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition shadow shrink-0"
+              title="Xem danh mục và mẹo sinh tồn né 50 loại bẫy nguy hiểm"
+            >
+              <span>📖 TỪ ĐIỂN 50 BẪY</span>
+            </button>
+          )}
+
+          <div
+            className="px-3 py-3.5 bg-slate-900/80 text-slate-300 border border-slate-800 rounded-xl text-xs font-mono flex items-center gap-1.5 select-none shrink-0"
+            title="Luôn cố định góc nhìn thứ 3"
+          >
+            <span className="text-slate-400">CAM:</span>
+            <span className="font-bold text-cyan-400">SỐ 3</span>
+          </div>
+        </div>
+
         {/* 1. Character Selector: Human & Cartoon Characters */}
         <div className="bg-slate-950/80 border border-slate-800/90 rounded-lg p-3 flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -185,140 +274,191 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5 pt-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono uppercase tracking-widest text-slate-400">CHỌN MÀN CHƠI</span>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 font-bold">
-              50 MÀN THỬ THÁCH
-            </span>
-          </div>
+        {gameMode === 'endless' ? (
+          /* ENDLESS MODE DASHBOARD */
+          <div className="flex flex-col gap-3">
+            {/* Record & Highlight Card */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="bg-slate-950/80 border border-amber-500/30 rounded-xl p-3 flex flex-col justify-between shadow-inner">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono text-amber-400 uppercase font-bold flex items-center gap-1.5">
+                    <span>👑 KỶ LỤC CỦA BẠN</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    LƯU TRÊN TRÌNH DUYỆT
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className="text-3xl font-black font-mono text-white tabular-nums">
+                    {endlessBestDistance}
+                  </span>
+                  <span className="text-xs text-amber-400 font-mono font-bold">MÉT</span>
+                  <div className="ml-auto text-xs font-mono text-slate-400">
+                    ĐIỂM: <strong className="text-cyan-400">{endlessBestScore.toLocaleString()}</strong>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">
+                  {endlessBestDistance > 0
+                    ? `Bạn đã tiến tới vùng đất kỳ thú! Hãy bứt tốc để phá kỷ lục hiện tại!`
+                    : `Chưa có thành tích. Nhấn phím Cách (Space) để xuất phát và lập kỷ lục đầu tiên!`}
+                </div>
+              </div>
 
-          {/* Chapter Quick Filter Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {[
-              { id: 0, label: 'TẤT CẢ (50)' },
-              { id: 1, label: 'CHƯƠNG 1 (1-10)' },
-              { id: 2, label: 'CHƯƠNG 2 (11-20)' },
-              { id: 3, label: 'CHƯƠNG 3 (21-30)' },
-              { id: 4, label: 'CHƯƠNG 4 (31-40)' },
-              { id: 5, label: 'CHƯƠNG 5 (41-50)' },
-            ].map((tab) => {
-              const currentChapter = Math.ceil(selectedLevelId / 10);
-              const isActive = tab.id === 0 ? false : tab.id === currentChapter;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    if (tab.id !== 0) {
-                      const firstLevelOfChap = (tab.id - 1) * 10 + 1;
-                      onSelectLevel(firstLevelOfChap);
-                    }
-                  }}
-                  className={`px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap transition cursor-pointer ${
-                    isActive
-                      ? 'bg-orange-500 text-slate-950 font-bold shadow'
-                      : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+              <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex flex-col justify-between">
+                <div className="text-xs font-mono text-cyan-400 uppercase font-bold flex items-center gap-1.5">
+                  <span>⚡ CƠ CHẾ CHẠY VÔ TẬN</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2 text-[11px] font-mono">
+                  <div className="bg-slate-900/90 p-1.5 rounded border border-slate-800">
+                    <span className="text-slate-400 block text-[9px]">COMBO TỐC ĐỘ</span>
+                    <span className="text-orange-400 font-bold">LÊN ĐẾN 3.0X</span>
+                  </div>
+                  <div className="bg-slate-900/90 p-1.5 rounded border border-slate-800">
+                    <span className="text-slate-400 block text-[9px]">ĐỔI MÔI TRƯỜNG</span>
+                    <span className="text-emerald-400 font-bold">MỖI 350 MÉT</span>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1">
+                  Đường chạy sinh ngẫu nhiên liên tục với bẫy cơ học, búng tường, lướt và bục phóng!
+                </div>
+              </div>
+            </div>
 
-        {/* Level Cards Grid with smooth scroll */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 max-h-[220px] sm:max-h-[260px] overflow-y-auto pr-1">
-          {levels.map((lvl) => {
-            const isSelected = lvl.id === selectedLevelId;
-            const chapterNum = Math.ceil(lvl.id / 10);
-            return (
-              <button
-                key={lvl.id}
-                type="button"
-                onClick={() => onSelectLevel(lvl.id)}
-                className={`flex flex-col items-start p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                  isSelected
-                    ? 'border-orange-500 bg-orange-500/15 text-white shadow-md ring-1 ring-orange-500/60'
-                    : 'border-slate-800/90 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                }`}
-              >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span
-                    className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
-                      isSelected ? 'bg-orange-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+            {/* Biomes Flow Timeline */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-2.5 flex flex-col gap-1.5">
+              <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">
+                CHU TRÌNH 7 VÙNG ĐẤT KHÁM PHÁ (CHUYỂN MÀU & ÁNH SÁNG THEO QUÃNG ĐƯỜNG):
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5">
+                {ENDLESS_BIOMES.map((b, idx) => (
+                  <div
+                    key={b.id}
+                    className="p-1.5 rounded border text-center flex flex-col items-center justify-center min-h-[46px]"
+                    style={{
+                      borderColor: `${b.color}40`,
+                      backgroundColor: `${b.color}15`,
+                    }}
+                  >
+                    <span className="text-[9px] font-mono text-slate-400">{idx * 350}m+</span>
+                    <span className="text-[10px] font-bold font-mono truncate" style={{ color: b.color }}>
+                      {b.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* 50 LEVELS CAMPAIGN SELECTION */
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5 pt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono uppercase tracking-widest text-slate-400">CHỌN MÀN CHƠI</span>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 font-bold">
+                  50 MÀN THỬ THÁCH
+                </span>
+              </div>
+
+              {/* Chapter Quick Filter Tabs */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {[
+                  { id: 0, label: 'TẤT CẢ (50)' },
+                  { id: 1, label: 'CHƯƠNG 1 (1-10)' },
+                  { id: 2, label: 'CHƯƠNG 2 (11-20)' },
+                  { id: 3, label: 'CHƯƠNG 3 (21-30)' },
+                  { id: 4, label: 'CHƯƠNG 4 (31-40)' },
+                  { id: 5, label: 'CHƯƠNG 5 (41-50)' },
+                ].map((tab) => {
+                  const currentChapter = Math.ceil(selectedLevelId / 10);
+                  const isActive = tab.id === 0 ? false : tab.id === currentChapter;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        if (tab.id !== 0) {
+                          const firstLevelOfChap = (tab.id - 1) * 10 + 1;
+                          onSelectLevel(firstLevelOfChap);
+                        }
+                      }}
+                      className={`px-2 py-1 rounded text-[10px] font-mono whitespace-nowrap transition cursor-pointer ${
+                        isActive
+                          ? 'bg-orange-500 text-slate-950 font-bold shadow'
+                          : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Level Cards Grid with smooth scroll */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 max-h-[150px] sm:max-h-[175px] overflow-y-auto pr-1">
+              {levels.map((lvl) => {
+                const isSelected = lvl.id === selectedLevelId;
+                const chapterNum = Math.ceil(lvl.id / 10);
+                return (
+                  <button
+                    key={lvl.id}
+                    type="button"
+                    onClick={() => onSelectLevel(lvl.id)}
+                    className={`flex flex-col items-start p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-500/15 text-white shadow-md ring-1 ring-orange-500/60'
+                        : 'border-slate-800/90 bg-slate-950/70 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                     }`}
                   >
-                    MÀN {lvl.id}
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                          isSelected ? 'bg-orange-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        MÀN {lvl.id}
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-400">C{chapterNum}</span>
+                    </div>
+                    <div className="font-bold text-xs leading-tight text-white line-clamp-1">{lvl.name}</div>
+                    <div className="text-[9px] text-cyan-400/90 font-mono mt-0.5 line-clamp-1">{lvl.archetypeLabel}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected Level Detail Briefing */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 text-xs text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-white text-sm">
+                    MÀN {currentSelectedLevel.id}: {currentSelectedLevel.name}
                   </span>
-                  <span className="text-[9px] font-mono text-slate-400">C{chapterNum}</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                    CHƯƠNG {Math.ceil(currentSelectedLevel.id / 10)}
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                    {currentSelectedLevel.archetypeLabel}
+                  </span>
                 </div>
-                <div className="font-bold text-xs leading-tight text-white line-clamp-1">{lvl.name}</div>
-                <div className="text-[9px] text-slate-400 mt-0.5 line-clamp-1">{lvl.subtitle}</div>
+                <div className="text-slate-300 text-xs line-clamp-1">{currentSelectedLevel.description}</div>
+                <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 pt-0.5">
+                  <span className="text-amber-300 font-bold">MỤC TIÊU VÀNG: &lt; {currentSelectedLevel.targetTimes.gold}s</span>
+                  <span>BẠC: &lt; {currentSelectedLevel.targetTimes.silver}s</span>
+                  <span>ĐỒNG: &lt; {currentSelectedLevel.targetTimes.bronze}s</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={onStartGame}
+                className="sm:self-center px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 hover:text-orange-300 border border-orange-500/50 rounded-lg font-mono text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <span>▶ VÀO MÀN NGAY</span>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Selected Level Detail Briefing */}
-        <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 text-xs text-slate-300 flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-white text-sm">
-              MÀN {currentSelectedLevel.id}: {currentSelectedLevel.name}
-            </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40">
-              CHƯƠNG {Math.ceil(currentSelectedLevel.id / 10)}
-            </span>
-          </div>
-          <div className="text-slate-300 text-xs">{currentSelectedLevel.description}</div>
-          <div className="flex items-center gap-4 text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-800/80">
-            <span className="text-amber-300 font-bold">MỤC TIÊU VÀNG: &lt; {currentSelectedLevel.targetTimes.gold}s</span>
-            <span>BẠC: &lt; {currentSelectedLevel.targetTimes.silver}s</span>
-            <span>ĐỒNG: &lt; {currentSelectedLevel.targetTimes.bronze}s</span>
-          </div>
-        </div>
-
-        {/* Mode & Start Row */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-          <div
-            className="px-3 py-2.5 bg-slate-900/80 text-slate-300 border border-slate-800 rounded-lg text-xs font-mono flex items-center gap-2 select-none shrink-0"
-            title="Luôn cố định góc nhìn thứ 3"
-          >
-            <span>CAMERA:</span>
-            <span className="font-bold text-cyan-400">
-              SỐ 3 (3RD PERS)
-            </span>
-          </div>
-
-          {onOpenTrapsCodex && (
-            <button
-              type="button"
-              onClick={onOpenTrapsCodex}
-              className="px-3 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/40 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition shadow shrink-0"
-              title="Xem danh mục và mẹo sinh tồn né 50 loại bẫy nguy hiểm"
-            >
-              <span>📖 TỪ ĐIỂN 50 BẪY</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            data-start="true"
-            onClick={onStartGame}
-            className="flex-1 min-w-[200px] py-2.5 px-6 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-slate-950 font-black text-sm uppercase tracking-wider rounded-lg transition-all shadow-lg flex items-center justify-center gap-2 group cursor-pointer"
-          >
-            <span>BẮT ĐẦU CHẠY MÀN {currentSelectedLevel.id}</span>
-            <svg
-              className="w-4 h-4 transform group-hover:translate-x-1 transition-transform"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </button>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Bottom borderless hints */}
@@ -542,18 +682,24 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 interface GameOverModalProps {
   reason?: 'fall' | 'trap';
   trapInfo?: { type?: string; name?: string; tip?: string } | null;
+  gameMode?: GameMode;
+  endlessStats?: EndlessRunStats | null;
   onRespawn: () => void;
   onRestart: () => void;
   onQuitToTitle: () => void;
+  onSwitchMode?: (mode: GameMode) => void;
   onOpenTrapsCodex?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
   reason = 'fall',
   trapInfo,
+  gameMode = 'levels',
+  endlessStats,
   onRespawn,
   onRestart,
   onQuitToTitle,
+  onSwitchMode,
   onOpenTrapsCodex,
 }) => {
   const isTrap = reason === 'trap';
@@ -607,7 +753,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
         <div>
           <div className="inline-block px-2.5 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider mb-1.5 uppercase bg-red-500/15 text-red-400 border border-red-500/30">
-            {display.badge}
+            {gameMode === 'endless' ? '⚡ CHẠY VÔ TẬN' : display.badge}
           </div>
           <h2 className="text-xl font-black uppercase text-white tracking-wide">
             {display.title}
@@ -622,27 +768,71 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 mt-2">
+        {/* Endless Mode Results Card */}
+        {gameMode === 'endless' && endlessStats && (
+          <div className="bg-slate-950/90 border border-slate-800 rounded-lg p-3 flex flex-col gap-2 text-left">
+            {endlessStats.isNewRecord && (
+              <div className="bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded px-2.5 py-1 text-[11px] font-mono font-bold text-center animate-pulse">
+                🌟 KỶ LỤC MỚI ĐƯỢC XÁC LẬP!
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800/80">
+                <span className="text-slate-400 block text-[9px] uppercase">Quãng đường</span>
+                <span className="text-lg font-black text-amber-400">{endlessStats.distance}m</span>
+                <span className="text-[9px] text-slate-400 block">Kỷ lục: {endlessStats.bestDistance}m</span>
+              </div>
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800/80">
+                <span className="text-slate-400 block text-[9px] uppercase">Tổng điểm</span>
+                <span className="text-lg font-black text-cyan-400">{endlessStats.score.toLocaleString()}</span>
+                <span className="text-[9px] text-slate-400 block">Kỷ lục: {endlessStats.bestScore.toLocaleString()}</span>
+              </div>
+              <div className="bg-slate-900/80 p-2 rounded border border-slate-800/80 col-span-2 flex items-center justify-between">
+                <div>
+                  <span className="text-slate-400 block text-[9px] uppercase">Vùng đất đạt tới</span>
+                  <span className="font-bold text-white text-xs">{endlessStats.biomeName}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-400 block text-[9px] uppercase">Tốc độ cực đại</span>
+                  <span className="font-bold text-cyan-400 text-xs">{Math.round(endlessStats.maxSpeed * 3.6)} KM/H</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 mt-1">
           <button
             type="button"
             data-start="true"
-            onClick={onRespawn}
+            onClick={gameMode === 'endless' ? onRestart : onRespawn}
             className="w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-lg transition shadow-lg cursor-pointer"
           >
-            HỒI SINH TẠI CHECKPOINT (SPACE / R)
+            {gameMode === 'endless' ? 'CHẠY LẠI VÔ TẬN (SPACE / R)' : 'HỒI SINH TẠI CHECKPOINT (SPACE / R)'}
           </button>
-          <button
-            type="button"
-            onClick={onRestart}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs uppercase tracking-wider rounded-lg transition"
-          >
-            CHẠY LẠI TỪ ĐẦU
-          </button>
+          {gameMode !== 'endless' && (
+            <button
+              type="button"
+              onClick={onRestart}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs uppercase tracking-wider rounded-lg transition cursor-pointer"
+            >
+              CHẠY LẠI TỪ ĐẦU
+            </button>
+          )}
+          {gameMode === 'endless' && onSwitchMode && (
+            <button
+              type="button"
+              onClick={() => onSwitchMode('levels')}
+              className="w-full py-2.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold rounded-lg transition cursor-pointer"
+            >
+              🏆 CHUYỂN SANG 50 MÀN CHIẾN DỊCH
+            </button>
+          )}
           {onOpenTrapsCodex && (
             <button
               type="button"
               onClick={onOpenTrapsCodex}
-              className="w-full py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/40 font-mono text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/40 font-mono text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <span>📖 XEM MẸO NÉ 50 BẪY</span>
             </button>
@@ -650,7 +840,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           <button
             type="button"
             onClick={onQuitToTitle}
-            className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono uppercase tracking-wider rounded-lg transition"
+            className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs font-mono uppercase tracking-wider rounded-lg transition cursor-pointer"
           >
             VỀ MENU CHÍNH
           </button>
