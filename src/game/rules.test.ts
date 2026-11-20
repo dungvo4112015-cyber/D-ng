@@ -14,6 +14,14 @@ import {
   calculateYawTowards,
   canPerformJump,
   PHYSICS_CONSTANTS,
+  calculateAerodynamicDrag,
+  calculateSlopeAcceleration,
+  calculateBounceElasticRecoil,
+  calculateLandingMomentumTransfer,
+  calculateCentripetalBanking,
+  calculateGForce,
+  calculateKineticEnergy,
+  calculateImpulseReaction,
 } from './rules';
 import { BoxCollider } from './types';
 import { buildRealisticTrap, updateRealisticTrap } from './trapVisuals';
@@ -339,4 +347,64 @@ test('buildRealisticTrap constructs high-fidelity models and updateRealisticTrap
     // Moving collider y position should update
     assert.ok(inst.group.position.y !== undefined);
   }
+});
+
+test('Newtonian Physical Laws & Dynamics: Aerodynamic Drag, Slope Physics, Elastic Recoil, Landing Momentum, and G-Force', () => {
+  // 1. Aerodynamic Drag (Newton I - Inertia & Fluid Drag)
+  const highSpeedVel = { x: 0, y: 0, z: -30 };
+  const dragged = calculateAerodynamicDrag(highSpeedVel, 0.024, 0.016);
+  assert.ok(Math.abs(dragged.z) < 30, 'Drag must gently decelerate hypersonic velocities');
+  assert.ok(Math.abs(dragged.z) > 28, 'Drag must not abruptly clamp speed');
+  assert.equal(dragged.x, 0, 'Lateral velocity must remain unchanged if 0');
+
+  // 2. Slope Tangential Acceleration (Newton II - F = m * a)
+  const forwardDir = { x: 0, z: -1 };
+  // Downhill angle (15 deg = 0.26 rad)
+  const downhillAcc = calculateSlopeAcceleration(forwardDir, 0.26, -24.0);
+  assert.ok(downhillAcc.az < 0, 'Downhill gradient must produce positive forward acceleration along -Z');
+
+  // Uphill angle (-15 deg)
+  const uphillAcc = calculateSlopeAcceleration(forwardDir, -0.26, -24.0);
+  assert.ok(uphillAcc.az > 0, 'Uphill gradient must produce resistive deceleration against -Z');
+
+  // 3. Elastic Restitution & Mechanical Energy (Hooke's Law on Bounce Pad)
+  const shallowRebound = calculateBounceElasticRecoil(-5.0, 20.0, 1.25);
+  const highFallRebound = calculateBounceElasticRecoil(-25.0, 20.0, 1.25);
+  assert.ok(shallowRebound >= 20.0, 'Rebound must be at least base bounce power');
+  assert.ok(highFallRebound > shallowRebound, 'Falling from high drop must produce higher rebound velocity (E_p -> E_k)');
+
+  // 4. Momentum Transfer & Compression Spring Absorption on Landing
+  const walkLanding = calculateLandingMomentumTransfer(-15.0, true, false);
+  const slideLanding = calculateLandingMomentumTransfer(-15.0, true, true);
+  const idleLanding = calculateLandingMomentumTransfer(-15.0, false, false);
+
+  assert.ok(walkLanding.compressionSquat > 0, 'Landing impact must produce knee compression squat');
+  assert.ok(walkLanding.forwardBoost > 0, 'Forward intended landing must transfer downward energy forward');
+  assert.ok(slideLanding.forwardBoost > walkLanding.forwardBoost, 'Sliding parkour roll must transfer more kinetic energy forward');
+  assert.equal(idleLanding.forwardBoost, 0, 'Idle vertical landing must not propel player forward');
+
+  // 5. Centripetal Banking Angle
+  const bankRight = calculateCentripetalBanking(15.0, 0.5, 0.016, 24.0);
+  const bankLeft = calculateCentripetalBanking(15.0, -0.5, 0.016, 24.0);
+  assert.ok(bankRight > 0, 'Turning right must tilt athlete rightwards (positive banking)');
+  assert.ok(bankLeft < 0, 'Turning left must tilt athlete leftwards (negative banking)');
+
+  // 6. G-Force Telemetry
+  const freefallG = calculateGForce({ x: 0, y: -24.0, z: 0 }, -24.0);
+  assert.equal(freefallG, 0.0, 'Freefall under pure gravity must yield 0.0 G (weightlessness)');
+
+  const restG = calculateGForce({ x: 0, y: 0, z: 0 }, -24.0);
+  assert.equal(restG, 1.0, 'Standing at rest on ground must yield exactly 1.0 G');
+
+  const bounceG = calculateGForce({ x: 0, y: 40.0, z: 0 }, -24.0);
+  assert.ok(bounceG > 2.0, 'Upward explosive rebound acceleration must yield >2.0 G');
+
+  // 7. Kinetic Energy (E_k = 0.5 * m * v^2)
+  const energy = calculateKineticEnergy(68.0, 10.0); // 0.5 * 68 * 100 = 3400 J = 3.4 kJ
+  assert.equal(energy, 3.4);
+
+  // 8. Newton's 3rd Law Reaction
+  const reaction = calculateImpulseReaction({ x: 1, z: 0 }, 12.0);
+  assert.equal(reaction.x, 12.0);
+  assert.equal(reaction.z, 0);
 });

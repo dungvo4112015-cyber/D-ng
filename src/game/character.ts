@@ -155,7 +155,7 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
 
   const basicMat = (color: string) => new THREE.MeshBasicMaterial({ color });
 
-  if (characterId !== 'kaito') {
+  if (characterId === 'kibo' || characterId === 'aoi') {
     leftLegGroup.add(leftFootGroup);
     rightLegGroup.add(rightFootGroup);
   }
@@ -1215,143 +1215,422 @@ export function buildCharacterRig(characterId: CharacterId, isSoftwareGl: boolea
     rightFootGroup.add(rShoe, rSole);
   } else {
     // ------------------------------------------------------------------------
-    // SPARKY: Charming Chibi Toon Robot
+    // SPARKY: Hyper-Detailed 3D Cyber Astronaut Parkour Runner
+    // Fully articulated kinematics: pauldrons, elbows, gauntlets, cyber hands,
+    // knee joints, shin thrusters, and high-top air sneakers
     // ------------------------------------------------------------------------
-    // ------------------------------------------------------------------------
-    // SPARKY: Cyber Astronaut Parkour Runner (Exactly matching reference screenshot)
-    // ------------------------------------------------------------------------
-    const cyberDarkMat = pbrMat('#1e2433', 0.45, 0.25);
+    const cyberDarkMat = pbrMat('#1e2433', 0.4, 0.3);
     const cyberSuitMat = pbrMat('#111827', 0.5, 0.2);
+    const cyberArmorTrim = pbrMat('#334155', 0.35, 0.5);
+    const cyberChromeMat = pbrMat('#e2e8f0', 0.2, 0.85);
     const cyberCyanMat = new THREE.MeshStandardMaterial({
       color: '#00f0ff',
       emissive: new THREE.Color('#00f0ff'),
-      emissiveIntensity: 0.85,
-      roughness: 0.2,
-      metalness: 0.1,
+      emissiveIntensity: 0.95,
+      roughness: 0.15,
+      metalness: 0.2,
     });
-    const sneakerWhiteMat = pbrMat('#ffffff', 0.35, 0.05);
-    const sneakerSoleMat = pbrMat('#0f172a', 0.7, 0.1);
+    const sneakerWhiteMat = pbrMat('#ffffff', 0.32, 0.05);
+    const sneakerSoleMat = pbrMat('#0f172a', 0.65, 0.1);
     const flameMat = basicMat('#00f0ff');
 
-    // Torso: High-tech Dark Cyber Armor with Cyan Chest Accent
+    // ------------------------------------------------------------------------
+    // 1. Torso: High-tech Composite Cyber Armor & Central Arc Reactor Core
+    // ------------------------------------------------------------------------
     const torsoGeo = new THREE.BoxGeometry(0.44, 0.52, 0.28);
     const torsoMesh = new THREE.Mesh(torsoGeo, cyberSuitMat);
     torsoMesh.position.y = 1.05;
     torsoGroup.add(torsoMesh);
 
-    // Glowing Cyan Core Stripe on chest
-    const chestStripeGeo = new THREE.BoxGeometry(0.12, 0.3, 0.02);
-    const chestStripe = new THREE.Mesh(chestStripeGeo, cyberCyanMat);
-    chestStripe.position.set(0, 1.08, -0.145);
-    torsoGroup.add(chestStripe);
+    // Beveled Pectoral Chestplate
+    const chestPlateGeo = new THREE.BoxGeometry(0.42, 0.22, 0.04);
+    const chestPlate = new THREE.Mesh(chestPlateGeo, cyberDarkMat);
+    chestPlate.position.set(0, 1.18, -0.145);
+    torsoGroup.add(chestPlate);
 
-    // Tech Backpack / Jetpack with Vertical Glowing Cyan Light Bar
-    const jetPackGeo = new THREE.BoxGeometry(0.32, 0.38, 0.15);
+    // Glowing Cyan Arc Reactor Core in center of chest
+    const reactorRingGeo = new THREE.TorusGeometry(0.055, 0.014, 8, 20);
+    const reactorRing = new THREE.Mesh(reactorRingGeo, cyberCyanMat);
+    reactorRing.position.set(0, 1.18, -0.168);
+    const reactorCoreGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 16);
+    reactorCoreGeo.rotateX(Math.PI / 2);
+    const reactorCore = new THREE.Mesh(reactorCoreGeo, cyberCyanMat);
+    reactorCore.position.set(0, 1.18, -0.166);
+    torsoGroup.add(reactorRing, reactorCore);
+
+    // 3-Tier Segmented Abdominal Kinetic Armor
+    for (let ab = 0; ab < 3; ab++) {
+      const abGeo = new THREE.BoxGeometry(0.34 - ab * 0.03, 0.045, 0.03);
+      const abMesh = new THREE.Mesh(abGeo, cyberArmorTrim);
+      abMesh.position.set(0, 1.02 - ab * 0.065, -0.142);
+      torsoGroup.add(abMesh);
+    }
+
+    // Heavy-Duty Tactical Cyber Jetpack with Twin Rocket Thrusters
+    const jetPackGeo = new THREE.BoxGeometry(0.34, 0.40, 0.16);
     const jetPack = new THREE.Mesh(jetPackGeo, cyberDarkMat);
     jetPack.position.set(0, 1.06, 0.2);
     torsoGroup.add(jetPack);
 
-    // Vertical glowing energy tube on backpack
-    const energyTubeGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.26, 8);
+    // Vertical Glowing Plasma Conduit on Jetpack
+    const energyTubeGeo = new THREE.CylinderGeometry(0.028, 0.028, 0.28, 12);
     const energyTube = new THREE.Mesh(energyTubeGeo, cyberCyanMat);
-    energyTube.position.set(0, 1.06, 0.28);
+    energyTube.position.set(0, 1.06, 0.285);
     torsoGroup.add(energyTube);
 
-    // Dual mini jet nozzles
-    const nozzleGeo = new THREE.CylinderGeometry(0.045, 0.06, 0.1, 8);
-    const nozL = new THREE.Mesh(nozzleGeo, cyberDarkMat);
-    nozL.position.set(-0.09, 0.84, 0.2);
-    const nozR = new THREE.Mesh(nozzleGeo, cyberDarkMat);
-    nozR.position.set(0.09, 0.84, 0.2);
+    // Twin Vectoring Rocket Nozzles
+    const nozzleGeo = new THREE.CylinderGeometry(0.045, 0.065, 0.11, 12);
+    const nozL = new THREE.Mesh(nozzleGeo, cyberChromeMat);
+    nozL.position.set(-0.10, 0.83, 0.2);
+    nozL.rotation.z = -0.1;
+    const nozR = new THREE.Mesh(nozzleGeo, cyberChromeMat);
+    nozR.position.set(0.10, 0.83, 0.2);
+    nozR.rotation.z = 0.1;
     torsoGroup.add(nozL, nozR);
 
-    // Thruster flame jets
-    const flameGeo = new THREE.ConeGeometry(0.05, 0.22, 6);
+    // Dynamic Rocket Thruster Flame Cones
+    const flameGeo = new THREE.ConeGeometry(0.055, 0.26, 8);
     const flameL = new THREE.Mesh(flameGeo, flameMat);
-    flameL.position.set(-0.09, 0.72, 0.2);
+    flameL.position.set(-0.10, 0.70, 0.2);
     flameL.rotation.x = Math.PI;
     flameL.visible = false;
     const flameR = new THREE.Mesh(flameGeo, flameMat);
-    flameR.position.set(0.09, 0.72, 0.2);
+    flameR.position.set(0.10, 0.70, 0.2);
     flameR.rotation.x = Math.PI;
     flameR.visible = false;
     torsoGroup.add(flameL, flameR);
     secondaryNodes.jetFlames = [flameL, flameR];
 
-    // Head: Cylindrical Dark Astronaut Helmet with Glowing Cyan Visor Screen
+    // ------------------------------------------------------------------------
+    // 2. Head: Spherical Bubble Helmet & Panoramic Curved Visor
+    // ------------------------------------------------------------------------
     headGroup.position.set(0, 1.52, 0);
 
-    const helmetGeo = new THREE.CylinderGeometry(0.22, 0.20, 0.36, 16);
+    // Spherical High-Gloss Helmet
+    const helmetGeo = new THREE.SphereGeometry(0.24, 20, 16);
     const helmetMesh = new THREE.Mesh(helmetGeo, cyberDarkMat);
     helmetMesh.position.y = 0.04;
     headGroup.add(helmetMesh);
 
-    // Helmet Top Dome
-    const domeGeo = new THREE.SphereGeometry(0.22, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    const dome = new THREE.Mesh(domeGeo, cyberDarkMat);
-    dome.position.y = 0.22;
-    headGroup.add(dome);
-
-    // Glowing Curved Cyan Visor Lens Screen on front of helmet
-    const visorGeo = new THREE.BoxGeometry(0.3, 0.16, 0.06);
+    // Panoramic Curved Cyan Visor Screen (front hemisphere)
+    const visorGeo = new THREE.SphereGeometry(0.246, 20, 16, -Math.PI / 2, Math.PI, Math.PI * 0.22, Math.PI * 0.52);
     const visor = new THREE.Mesh(visorGeo, cyberCyanMat);
-    visor.position.set(0, 0.05, -0.19);
+    visor.position.y = 0.04;
     headGroup.add(visor);
 
-    // Side Headset Canister / Communicator (visible on left side of helmet in screenshot)
-    const canGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.12, 12);
-    const canister = new THREE.Mesh(canGeo, cyberDarkMat);
-    canister.rotation.z = Math.PI / 2;
-    canister.position.set(-0.23, 0.05, 0);
+    // Forehead Sensor Brow
+    const browCapGeo = new THREE.BoxGeometry(0.16, 0.03, 0.06);
+    const browCap = new THREE.Mesh(browCapGeo, cyberArmorTrim);
+    browCap.position.set(0, 0.16, -0.21);
+    headGroup.add(browCap);
+
+    // Dual Side Communications Headsets with Cyan Status Rings
+    const canGeo = new THREE.CylinderGeometry(0.065, 0.065, 0.12, 14);
+    const canisterL = new THREE.Mesh(canGeo, cyberDarkMat);
+    canisterL.rotation.z = Math.PI / 2;
+    canisterL.position.set(-0.24, 0.04, 0);
 
     const canRingGeo = new THREE.TorusGeometry(0.065, 0.012, 6, 16);
-    const canRing = new THREE.Mesh(canRingGeo, cyberCyanMat);
-    canRing.rotation.y = Math.PI / 2;
-    canRing.position.set(-0.28, 0.05, 0);
-    headGroup.add(canister, canRing);
+    const canRingL = new THREE.Mesh(canRingGeo, cyberCyanMat);
+    canRingL.rotation.y = Math.PI / 2;
+    canRingL.position.set(-0.29, 0.04, 0);
 
-    // Limbs: Sleek dark arms with cyan wristbands
-    leftArmGroup.position.set(-0.28, 1.30, 0);
-    rightArmGroup.position.set(0.28, 1.30, 0);
+    const canisterR = new THREE.Mesh(canGeo, cyberDarkMat);
+    canisterR.rotation.z = Math.PI / 2;
+    canisterR.position.set(0.24, 0.04, 0);
 
-    const bArmGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.44, 8);
-    const lArm = new THREE.Mesh(bArmGeo, cyberSuitMat);
-    lArm.position.y = -0.22;
-    const lBand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), cyberCyanMat);
-    lBand.position.y = -0.38;
-    leftArmGroup.add(lArm, lBand);
+    const canRingR = new THREE.Mesh(canRingGeo, cyberCyanMat);
+    canRingR.rotation.y = Math.PI / 2;
+    canRingR.position.set(0.29, 0.04, 0);
+    headGroup.add(canisterL, canRingL, canisterR, canRingR);
 
-    const rArm = new THREE.Mesh(bArmGeo, cyberSuitMat);
-    rArm.position.y = -0.22;
-    const rBand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 8), cyberCyanMat);
-    rBand.position.y = -0.38;
-    rightArmGroup.add(rArm, rBand);
+    // Tactical Flexible Antenna (on left comms canister)
+    const antennaGroup = new THREE.Group();
+    antennaGroup.position.set(-0.26, 0.10, 0);
+    const antRodGeo = new THREE.CylinderGeometry(0.01, 0.012, 0.18, 6);
+    const antRod = new THREE.Mesh(antRodGeo, cyberChromeMat);
+    antRod.position.y = 0.09;
+    const antTipGeo = new THREE.SphereGeometry(0.022, 8, 8);
+    const antTip = new THREE.Mesh(antTipGeo, cyberCyanMat);
+    antTip.position.y = 0.18;
+    antennaGroup.add(antRod, antTip);
+    headGroup.add(antennaGroup);
+    secondaryNodes.antennaGroup = antennaGroup;
 
-    // Legs: Slim dark cyber legs
-    leftLegGroup.position.set(-0.14, 0.74, 0);
-    rightLegGroup.position.set(0.14, 0.74, 0);
+    // Chin Rebreather Intake Filters
+    const chinVentGeo = new THREE.BoxGeometry(0.08, 0.04, 0.05);
+    const chinVent = new THREE.Mesh(chinVentGeo, cyberArmorTrim);
+    chinVent.position.set(0, -0.12, -0.19);
+    headGroup.add(chinVent);
 
-    const bLegGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.50, 8);
-    const lLeg = new THREE.Mesh(bLegGeo, cyberSuitMat);
-    lLeg.position.y = -0.25;
-    leftLegGroup.add(lLeg);
+    // ------------------------------------------------------------------------
+    // 3. Articulated Upper Limbs: Pauldrons, Biceps, Elbows, Forearms & 3D Hands
+    // ------------------------------------------------------------------------
+    leftArmGroup.position.set(-0.28, 1.32, 0);
+    rightArmGroup.position.set(0.28, 1.32, 0);
 
-    const rLeg = new THREE.Mesh(bLegGeo, cyberSuitMat);
-    rLeg.position.y = -0.25;
-    rightLegGroup.add(rLeg);
+    // Armored Shoulder Pauldrons
+    const pauldronGeo = new THREE.BoxGeometry(0.14, 0.12, 0.16);
+    const pauldronTrimGeo = new THREE.BoxGeometry(0.145, 0.022, 0.165);
 
-    // Feet: Crisp clean WHITE cyber sneakers with dark rubber soles (just like in screenshot!)
-    leftFootGroup.position.set(0, -0.66, -0.04);
-    const lShoeTop = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.28), sneakerWhiteMat);
-    const lShoeSole = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.30), sneakerSoleMat);
-    lShoeSole.position.y = -0.07;
-    leftFootGroup.add(lShoeTop, lShoeSole);
+    const lPauldron = new THREE.Mesh(pauldronGeo, cyberDarkMat);
+    const lPauldronTrim = new THREE.Mesh(pauldronTrimGeo, cyberCyanMat);
+    lPauldronTrim.position.y = -0.04;
+    leftArmGroup.add(lPauldron, lPauldronTrim);
 
-    rightFootGroup.position.set(0, -0.66, -0.04);
-    const rShoeTop = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.28), sneakerWhiteMat);
-    const rShoeSole = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.30), sneakerSoleMat);
-    rShoeSole.position.y = -0.07;
-    rightFootGroup.add(rShoeTop, rShoeSole);
+    const rPauldron = new THREE.Mesh(pauldronGeo, cyberDarkMat);
+    const rPauldronTrim = new THREE.Mesh(pauldronTrimGeo, cyberCyanMat);
+    rPauldronTrim.position.y = -0.04;
+    rightArmGroup.add(rPauldron, rPauldronTrim);
+
+    // Upper Arm Biceps with Hydraulic Micro-Piston
+    const bicepGeo = new THREE.CylinderGeometry(0.052, 0.046, 0.22, 12);
+    const lBicep = new THREE.Mesh(bicepGeo, cyberSuitMat);
+    lBicep.position.y = -0.11;
+    const rBicep = new THREE.Mesh(bicepGeo, cyberSuitMat);
+    rBicep.position.y = -0.11;
+
+    const pistonGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.16, 6);
+    const lPiston = new THREE.Mesh(pistonGeo, cyberChromeMat);
+    lPiston.position.set(0, -0.11, 0.045);
+    const rPiston = new THREE.Mesh(pistonGeo, cyberChromeMat);
+    rPiston.position.set(0, -0.11, 0.045);
+
+    leftArmGroup.add(lBicep, lPiston);
+    rightArmGroup.add(rBicep, rPiston);
+
+    // Articulated Forearm Groups (flex naturally at elbow during sprint/jump)
+    leftForearmGroup.position.set(0, -0.22, 0);
+    rightForearmGroup.position.set(0, -0.22, 0);
+    leftArmGroup.add(leftForearmGroup);
+    rightArmGroup.add(rightForearmGroup);
+
+    // Chrome Elbow Joint Spheres
+    const elbowGeo = new THREE.SphereGeometry(0.046, 12, 10);
+    const lElbow = new THREE.Mesh(elbowGeo, cyberChromeMat);
+    const rElbow = new THREE.Mesh(elbowGeo, cyberChromeMat);
+    leftForearmGroup.add(lElbow);
+    rightForearmGroup.add(rElbow);
+
+    // Forearm Gauntlet Shells
+    const gauntletGeo = new THREE.CylinderGeometry(0.050, 0.042, 0.22, 12);
+    const lGauntlet = new THREE.Mesh(gauntletGeo, cyberSuitMat);
+    lGauntlet.position.y = -0.11;
+    const rGauntlet = new THREE.Mesh(gauntletGeo, cyberSuitMat);
+    rGauntlet.position.y = -0.11;
+    leftForearmGroup.add(lGauntlet);
+    rightForearmGroup.add(rGauntlet);
+
+    // Left Wrist: Glowing Cyan Holographic Smart HUD Display
+    const hudScreenGeo = new THREE.BoxGeometry(0.038, 0.032, 0.016);
+    const hudScreen = new THREE.Mesh(hudScreenGeo, cyberCyanMat);
+    hudScreen.position.set(0, -0.19, -0.046);
+    leftForearmGroup.add(hudScreen);
+
+    // Right Wrist: Tactical Power Band
+    const cuffGeo = new THREE.CylinderGeometry(0.046, 0.046, 0.04, 12);
+    const rCuff = new THREE.Mesh(cuffGeo, cyberCyanMat);
+    rCuff.position.y = -0.19;
+    rightForearmGroup.add(rCuff);
+
+    // 3D Articulated Cyber Hands (Palm, Opposable Thumb & Fingers with Tactile Pads)
+    const palmGeo = new THREE.BoxGeometry(0.082, 0.085, 0.042);
+    const thumbGeo = new THREE.BoxGeometry(0.026, 0.055, 0.026);
+    const fingerGeo = new THREE.BoxGeometry(0.022, 0.065, 0.024);
+    const padGeo = new THREE.BoxGeometry(0.020, 0.024, 0.022);
+
+    const buildCyberHand = (isLeft: boolean) => {
+      const hand = new THREE.Group();
+      hand.position.set(0, -0.23, 0);
+
+      const palm = new THREE.Mesh(palmGeo, cyberDarkMat);
+      palm.position.y = -0.04;
+      hand.add(palm);
+
+      // Thumb
+      const thumb = new THREE.Mesh(thumbGeo, cyberArmorTrim);
+      thumb.position.set(isLeft ? 0.042 : -0.042, -0.03, -0.016);
+      thumb.rotation.z = isLeft ? -0.35 : 0.35;
+      const thumbPad = new THREE.Mesh(padGeo, cyberCyanMat);
+      thumbPad.position.y = -0.025;
+      thumb.add(thumbPad);
+      hand.add(thumb);
+
+      // Index, Middle, Ring Fingers
+      const fingerOffsets = [-0.024, 0, 0.024];
+      fingerOffsets.forEach((fx) => {
+        const finger = new THREE.Mesh(fingerGeo, cyberArmorTrim);
+        finger.position.set(fx, -0.09, 0);
+        const fPad = new THREE.Mesh(padGeo, cyberCyanMat);
+        fPad.position.y = -0.03;
+        finger.add(fPad);
+        hand.add(finger);
+      });
+
+      return hand;
+    };
+
+    leftForearmGroup.add(buildCyberHand(true));
+    rightForearmGroup.add(buildCyberHand(false));
+
+    // ------------------------------------------------------------------------
+    // 4. Articulated Lower Limbs: Thighs, Knee Caps, Shin Greaves & Sneakers
+    // ------------------------------------------------------------------------
+    leftLegGroup.position.set(-0.14, 0.76, 0);
+    rightLegGroup.position.set(0.14, 0.76, 0);
+
+    // Thighs: Cyber Armor Casing
+    const thighGeo = new THREE.CylinderGeometry(0.082, 0.066, 0.32, 12);
+    const lThigh = new THREE.Mesh(thighGeo, cyberSuitMat);
+    lThigh.position.y = -0.16;
+    const rThigh = new THREE.Mesh(thighGeo, cyberSuitMat);
+    rThigh.position.y = -0.16;
+
+    // Outer Armored Thigh Plates with Cyan Status LEDs
+    const thighPlateGeo = new THREE.BoxGeometry(0.022, 0.22, 0.09);
+    const lThighPlate = new THREE.Mesh(thighPlateGeo, cyberDarkMat);
+    lThighPlate.position.set(-0.075, -0.16, 0);
+    const lPlateLed = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.08, 0.02), cyberCyanMat);
+    lPlateLed.position.set(-0.076, -0.16, 0);
+
+    const rThighPlate = new THREE.Mesh(thighPlateGeo, cyberDarkMat);
+    rThighPlate.position.set(0.075, -0.16, 0);
+    const rPlateLed = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.08, 0.02), cyberCyanMat);
+    rPlateLed.position.set(0.076, -0.16, 0);
+
+    leftLegGroup.add(lThigh, lThighPlate, lPlateLed);
+    rightLegGroup.add(rThigh, rThighPlate, rPlateLed);
+
+    // Articulated Calves (flex naturally backwards on stride recovery & sliding)
+    leftCalfGroup.position.set(0, -0.32, 0);
+    rightCalfGroup.position.set(0, -0.32, 0);
+    leftLegGroup.add(leftCalfGroup);
+    rightLegGroup.add(rightCalfGroup);
+
+    // Chrome Spherical Knee Pivots & Beveled Knee Guard Armor Plating
+    const kneePivotGeo = new THREE.SphereGeometry(0.05, 12, 10);
+    const kneeArmorGeo = new THREE.BoxGeometry(0.10, 0.09, 0.045);
+
+    const lKneePivot = new THREE.Mesh(kneePivotGeo, cyberChromeMat);
+    const lKneeArmor = new THREE.Mesh(kneeArmorGeo, cyberDarkMat);
+    lKneeArmor.position.set(0, 0, -0.055);
+
+    const rKneePivot = new THREE.Mesh(kneePivotGeo, cyberChromeMat);
+    const rKneeArmor = new THREE.Mesh(kneeArmorGeo, cyberDarkMat);
+    rKneeArmor.position.set(0, 0, -0.055);
+
+    leftCalfGroup.add(lKneePivot, lKneeArmor);
+    rightCalfGroup.add(rKneePivot, rKneeArmor);
+
+    // Aerodynamic Shin Greaves with Rear Cooling Vent Thrusters
+    const shinGeo = new THREE.CylinderGeometry(0.068, 0.048, 0.30, 12);
+    const lShin = new THREE.Mesh(shinGeo, cyberSuitMat);
+    lShin.position.y = -0.15;
+    const rShin = new THREE.Mesh(shinGeo, cyberSuitMat);
+    rShin.position.y = -0.15;
+
+    // Rear Calf Micro-Thruster Exhausts (glowing cyan interior)
+    const exhaustGeo = new THREE.BoxGeometry(0.04, 0.12, 0.025);
+    const lExhaust = new THREE.Mesh(exhaustGeo, cyberCyanMat);
+    lExhaust.position.set(0, -0.15, 0.055);
+    const rExhaust = new THREE.Mesh(exhaustGeo, cyberCyanMat);
+    rExhaust.position.set(0, -0.15, 0.055);
+
+    leftCalfGroup.add(lShin, lExhaust);
+    rightCalfGroup.add(rShin, rExhaust);
+
+    // Connect feet directly to calves for lifelike articulated leg kinematics
+    leftCalfGroup.add(leftFootGroup);
+    rightCalfGroup.add(rightFootGroup);
+
+    // ------------------------------------------------------------------------
+    // 5. 3D AcroKicks High-Top Cyber Sneakers: Curved Toe Spring & Air Cushion Sole
+    // ------------------------------------------------------------------------
+    leftFootGroup.position.set(0, -0.32, -0.04);
+    rightFootGroup.position.set(0, -0.32, -0.04);
+
+    const buildSparkySneaker = () => {
+      const shoeGroup = new THREE.Group();
+
+      // Curved Rubber Outsole with traction tread
+      const outsoleGeo = new THREE.BoxGeometry(0.155, 0.035, 0.28);
+      const outsole = new THREE.Mesh(outsoleGeo, sneakerSoleMat);
+      outsole.position.set(0, -0.065, 0.02);
+
+      // Curved Upturned Toe Spring (anatomical running roll)
+      const toeSpringGeo = new THREE.BoxGeometry(0.15, 0.032, 0.09);
+      const toeSpring = new THREE.Mesh(toeSpringGeo, sneakerSoleMat);
+      toeSpring.position.set(0, -0.048, -0.135);
+      toeSpring.rotation.x = -0.22;
+
+      // Chunky Sculpted Clean White EVA Foam Midsole
+      const midsoleGeo = new THREE.BoxGeometry(0.152, 0.045, 0.27);
+      const midsole = new THREE.Mesh(midsoleGeo, sneakerWhiteMat);
+      midsole.position.set(0, -0.03, 0.02);
+
+      // Translucent Glowing Cyan Air Cushion Unit Window
+      const airGeo = new THREE.BoxGeometry(0.13, 0.025, 0.10);
+      const airMesh = new THREE.Mesh(airGeo, cyberCyanMat);
+      airMesh.position.set(0, -0.03, 0.08);
+
+      // Clean White Tech-Fabric High-Top Upper
+      const upperGeo = new THREE.BoxGeometry(0.145, 0.095, 0.25);
+      const upper = new THREE.Mesh(upperGeo, sneakerWhiteMat);
+      upper.position.set(0, 0.02, 0.02);
+
+      // Front Toe Bumper Cap
+      const toeCapGeo = new THREE.BoxGeometry(0.142, 0.06, 0.08);
+      const toeCap = new THREE.Mesh(toeCapGeo, sneakerWhiteMat);
+      toeCap.position.set(0, 0.01, -0.11);
+      toeCap.rotation.x = -0.2;
+
+      // Padded Tongue & High-Top Collar
+      const tongueGeo = new THREE.BoxGeometry(0.11, 0.10, 0.03);
+      const tongue = new THREE.Mesh(tongueGeo, sneakerWhiteMat);
+      tongue.position.set(0, 0.08, -0.04);
+      tongue.rotation.x = -0.25;
+
+      const collarGeo = new THREE.BoxGeometry(0.14, 0.05, 0.12);
+      const collar = new THREE.Mesh(collarGeo, sneakerWhiteMat);
+      collar.position.set(0, 0.07, 0.08);
+
+      // 3D Crossed Cyan Laces & Tied Knot
+      const laceBarGeo = new THREE.BoxGeometry(0.09, 0.012, 0.02);
+      const lace1 = new THREE.Mesh(laceBarGeo, cyberCyanMat);
+      lace1.position.set(0, 0.07, -0.07);
+      const lace2 = new THREE.Mesh(laceBarGeo, cyberCyanMat);
+      lace2.position.set(0, 0.085, -0.04);
+      const lace3 = new THREE.Mesh(laceBarGeo, cyberCyanMat);
+      lace3.position.set(0, 0.10, -0.01);
+      const knotGeo = new THREE.SphereGeometry(0.018, 8, 8);
+      const knot = new THREE.Mesh(knotGeo, cyberCyanMat);
+      knot.position.set(0, 0.115, -0.02);
+
+      // Rear Cyan Heel Pull Tab
+      const tabGeo = new THREE.BoxGeometry(0.02, 0.06, 0.015);
+      const tab = new THREE.Mesh(tabGeo, cyberCyanMat);
+      tab.position.set(0, 0.09, 0.14);
+
+      shoeGroup.add(
+        outsole,
+        toeSpring,
+        midsole,
+        airMesh,
+        upper,
+        toeCap,
+        tongue,
+        collar,
+        lace1,
+        lace2,
+        lace3,
+        knot,
+        tab
+      );
+      return shoeGroup;
+    };
+
+    leftFootGroup.add(buildSparkySneaker());
+    rightFootGroup.add(buildSparkySneaker());
   }
 
   // 2. Ground Contact Shadow
@@ -1462,9 +1741,10 @@ export function animateCharacterRig(
   time: number,
   dt: number
 ) {
-  // Sync root position & yaw
+  // Sync root position & yaw & centripetal banking tilt
   rig.rootGroup.position.set(player.position.x, player.position.y, player.position.z);
   rig.rootGroup.rotation.y = player.rotation.yaw;
+  rig.rootGroup.rotation.z = -(player.bankingAngle || 0);
 
   // Stride parameters
   const isMoving = player.speed > 0.5 && player.isGrounded && !player.isSliding;

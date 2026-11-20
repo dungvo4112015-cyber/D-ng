@@ -95,6 +95,12 @@ export interface PlayerPhysicsState {
     dashes: number;
     maxSpeedReached: number;
   };
+  // Real-time Newtonian Physics Telemetry
+  acceleration?: Vector3D;
+  gForce?: number;
+  kineticEnergy?: number;
+  bankingAngle?: number;
+  activePhysicsLaw?: 'inertia' | 'acceleration' | 'reaction' | 'centripetal' | null;
 }
 
 export type LevelArchetype =

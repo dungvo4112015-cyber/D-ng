@@ -14,6 +14,14 @@ import {
   evaluateWallRun,
   PHYSICS_CONSTANTS,
   resolveBoxCollision,
+  calculateAerodynamicDrag,
+  calculateSlopeAcceleration,
+  calculateBounceElasticRecoil,
+  calculateLandingMomentumTransfer,
+  calculateCentripetalBanking,
+  calculateGForce,
+  calculateKineticEnergy,
+  calculateImpulseReaction,
 } from './game/rules';
 import {
   calculateEndlessScore,
@@ -88,6 +96,9 @@ export default function App() {
     maxJumps: 2,
     currentAction: 'idle' as PlayerPhysicsState['currentAction'],
     wallRunSide: null as 'left' | 'right' | null,
+    gForce: 1.0,
+    kineticEnergy: 0,
+    activePhysicsLaw: null as PlayerPhysicsState['activePhysicsLaw'],
   });
 
   // Run outcome statistics
@@ -139,9 +150,16 @@ export default function App() {
         dashes: 0,
         maxSpeedReached: 0,
       },
+      acceleration: { x: 0, y: 0, z: 0 },
+      gForce: 1.0,
+      kineticEnergy: 0,
+      bankingAngle: 0,
+      activePhysicsLaw: null,
     } as PlayerPhysicsState,
     checkpointPos: { ...currentLevel.spawnPoint },
     checkpointYaw: currentLevel.spawnYaw,
+    prevYaw: currentLevel.spawnYaw,
+    prevVelocity: { x: 0, y: 0, z: 0 },
     elapsedTime: 0,
     keys: new Set<string>(),
     mouseControlMode: 'mouse_follow' as 'mouse_follow' | 'pointer_lock',
@@ -269,6 +287,9 @@ export default function App() {
           maxJumps: sim.player.maxJumps,
           currentAction: sim.player.currentAction,
           wallRunSide: sim.player.wallRunSide,
+          gForce: sim.player.gForce ?? 1.0,
+          kineticEnergy: sim.player.kineticEnergy ?? 0,
+          activePhysicsLaw: sim.player.activePhysicsLaw ?? null,
         });
 
         if (sim.gameMode === 'endless') {
@@ -324,6 +345,12 @@ export default function App() {
   const updatePhysics = (sim: typeof simRef.current, dt: number) => {
     const p = sim.player;
     const keys = sim.keys;
+    const prevVelX = p.velocity.x;
+    const prevVelY = p.velocity.y;
+    const prevVelZ = p.velocity.z;
+
+    // Reset frame-by-frame physics law badge
+    p.activePhysicsLaw = null;
 
     // 1. Mouse rotation & aim (Fixed in center of character)
     p.rotation.yaw -= sim.mouseDeltaX * 0.0024;
@@ -331,6 +358,15 @@ export default function App() {
     p.rotation.pitch = Math.max(-Math.PI / 2.4, Math.min(Math.PI / 2.4, p.rotation.pitch));
     sim.mouseDeltaX = 0;
     sim.mouseDeltaY = 0;
+
+    // Centripetal Banking (Lực Hướng Tâm - ĐL II)
+    const prevYaw = sim.prevYaw ?? p.rotation.yaw;
+    const yawDelta = p.rotation.yaw - prevYaw;
+    sim.prevYaw = p.rotation.yaw;
+    p.bankingAngle = calculateCentripetalBanking(p.speed, yawDelta, dt, PHYSICS_CONSTANTS.GRAVITY);
+    if (Math.abs(p.bankingAngle) > 0.12 && p.speed > 5) {
+      p.activePhysicsLaw = 'centripetal';
+    }
 
     // 2. Dash cooldown recovery
     if (p.dashCooldown > 0) {
@@ -401,6 +437,13 @@ export default function App() {
     // 4. Horizontal velocity updates
     if (!p.isDashing) {
       if (p.isSliding) {
+        // Newton II: Tangential slope acceleration component along pitch (F = m*a)
+        if (Math.abs(p.rotation.pitch) > 0.05) {
+          const slopeAccel = calculateSlopeAcceleration({ x: fwdX, z: fwdZ }, p.rotation.pitch, PHYSICS_CONSTANTS.GRAVITY);
+          p.velocity.x += slopeAccel.ax * dt;
+          p.velocity.z += slopeAccel.az * dt;
+          p.activePhysicsLaw = 'acceleration';
+        }
         // Sliding: low friction, retain momentum
         const friction = Math.exp(-PHYSICS_CONSTANTS.FRICTION_SLIDE * dt);
         p.velocity.x *= friction;
@@ -436,10 +479,14 @@ export default function App() {
         p.velocity.x += wishX * airAccel;
         p.velocity.z += wishZ * airAccel;
 
-        // Air drag
-        const airDrag = Math.exp(-PHYSICS_CONSTANTS.FRICTION_AIR * dt);
-        p.velocity.x *= airDrag;
-        p.velocity.z *= airDrag;
+        // Newton I: Aerodynamic Drag (kháng khí động học phi tuyến tính F_d = 0.5 * Cd * rho * v^2)
+        const dragVel = calculateAerodynamicDrag({ x: p.velocity.x, y: 0, z: p.velocity.z }, 0.024, dt);
+        p.velocity.x = dragVel.x;
+        p.velocity.z = dragVel.z;
+
+        if ((p.speed > 16 || p.isDashing) && !p.activePhysicsLaw) {
+          p.activePhysicsLaw = 'inertia';
+        }
       }
     }
 
@@ -508,6 +555,7 @@ export default function App() {
 
     // 8. Collision detection & Resolution against level colliders
     let wasGrounded = p.isGrounded;
+    const incomingFallVelY = p.velocity.y;
     p.isGrounded = false;
     let contactWallNormal: { x: number; z: number } | null = null;
 
@@ -541,12 +589,13 @@ export default function App() {
         p.position = res.pos;
         p.velocity = res.vel;
 
-        // Bounce Pad trigger
+        // Bounce Pad trigger (ĐL III Newton: Phản Lực Đàn Hồi & Định luật Hooke)
         if (box.type === 'bounce') {
           const bouncePower = box.metadata?.bounceStrength || 20;
-          p.velocity.y = bouncePower;
+          p.velocity.y = calculateBounceElasticRecoil(incomingFallVelY, bouncePower, 1.25);
           p.isGrounded = false;
           p.jumpsRemaining = p.maxJumps;
+          p.activePhysicsLaw = 'reaction';
           sounds.playBounce();
         }
 
@@ -571,11 +620,21 @@ export default function App() {
       }
     }
 
-    // Land audio
+    // Land audio & momentum transfer (ĐL III Newton & Nén đàn hồi khớp Hooke)
     if (!wasGrounded && p.isGrounded) {
       sounds.playLand();
       p.isWallRunning = false;
       p.jumpsRemaining = p.maxJumps;
+
+      // Transfer vertical fall kinetic energy into forward roll/slide momentum
+      if (incomingFallVelY < -8) {
+        const landingRes = calculateLandingMomentumTransfer(incomingFallVelY, moveForward > 0, p.isSliding);
+        if (landingRes.forwardBoost > 0.5) {
+          p.velocity.x += fwdX * landingRes.forwardBoost;
+          p.velocity.z += fwdZ * landingRes.forwardBoost;
+          p.activePhysicsLaw = 'reaction';
+        }
+      }
     }
 
     // 9. Wall Run evaluation
@@ -615,6 +674,14 @@ export default function App() {
     if (p.position.y < minLevelY - 16) {
       triggerDefeat(sim, 'fall');
     }
+
+    // 12. Instantaneous acceleration vector, G-Force, and Kinetic Energy (E_k = 1/2 * m * v^2)
+    const accelX = (p.velocity.x - prevVelX) / Math.max(dt, 0.001);
+    const accelY = (p.velocity.y - prevVelY) / Math.max(dt, 0.001);
+    const accelZ = (p.velocity.z - prevVelZ) / Math.max(dt, 0.001);
+    p.acceleration = { x: accelX, y: accelY, z: accelZ };
+    p.gForce = calculateGForce(p.acceleration, PHYSICS_CONSTANTS.GRAVITY);
+    p.kineticEnergy = calculateKineticEnergy(68.0, p.speed);
   };
 
   const performGroundJump = (p: PlayerPhysicsState) => {
@@ -642,9 +709,11 @@ export default function App() {
 
   const performWallJump = (p: PlayerPhysicsState) => {
     if (!p.wallNormal) return;
+    const impulse = calculateImpulseReaction(p.wallNormal, PHYSICS_CONSTANTS.WALL_JUMP_OUT_FORCE);
     p.velocity.y = PHYSICS_CONSTANTS.WALL_JUMP_UP_FORCE;
-    p.velocity.x += p.wallNormal.x * PHYSICS_CONSTANTS.WALL_JUMP_OUT_FORCE;
-    p.velocity.z += p.wallNormal.z * PHYSICS_CONSTANTS.WALL_JUMP_OUT_FORCE;
+    p.velocity.x += impulse.x;
+    p.velocity.z += impulse.z;
+    p.activePhysicsLaw = 'reaction';
     p.isWallRunning = false;
     p.jumpBufferTimer = 0;
     p.jumpsRemaining = 1;
@@ -1108,6 +1177,9 @@ export default function App() {
           endlessBiomeName={endlessHud.biomeName}
           endlessBiomeColor={endlessHud.biomeColor}
           isAutoRunning={isAutoRunning}
+          gForce={hudState.gForce}
+          kineticEnergy={hudState.kineticEnergy}
+          activePhysicsLaw={hudState.activePhysicsLaw}
           onSelectCharacter={handleSelectCharacter}
           onToggleCamera={toggleCameraMode}
           onToggleMouseControlMode={toggleMouseControlMode}

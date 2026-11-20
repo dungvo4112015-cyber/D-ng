@@ -33,6 +33,10 @@ interface HUDProps {
   endlessBiomeName?: string;
   endlessBiomeColor?: string;
   isAutoRunning?: boolean;
+  // Real-time physical laws telemetry
+  gForce?: number;
+  kineticEnergy?: number;
+  activePhysicsLaw?: 'inertia' | 'acceleration' | 'reaction' | 'centripetal' | null;
   onSelectCharacter: (id: CharacterId) => void;
   onToggleCamera: () => void;
   onToggleMouseControlMode: () => void;
@@ -66,6 +70,9 @@ export const HUD: React.FC<HUDProps> = ({
   endlessBiomeName = 'Bình Minh',
   endlessBiomeColor = '#f97316',
   isAutoRunning = false,
+  gForce = 1.0,
+  kineticEnergy = 0,
+  activePhysicsLaw = null,
   onSelectCharacter,
   onToggleCamera,
   onToggleMouseControlMode,
@@ -182,6 +189,33 @@ export const HUD: React.FC<HUDProps> = ({
               {formatGameTime(elapsedTime)}
             </div>
           </div>
+
+          {/* Real-time Newtonian Physics Telemetry */}
+          <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 border-t border-slate-800/80 pt-1 mt-0.5">
+            <span className="flex items-center gap-1">
+              <span className="text-amber-400 font-bold">G:</span>
+              <span className={`font-bold ${gForce > 2.0 ? 'text-rose-400 animate-pulse' : gForce < 0.5 ? 'text-cyan-300' : 'text-slate-200'}`}>
+                {gForce.toFixed(1)}G
+              </span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="text-sky-400 font-bold">Eₖ:</span>
+              <span className="text-slate-200">{kineticEnergy} kJ</span>
+            </span>
+          </div>
+
+          {/* Active Physical Law Badge */}
+          {activePhysicsLaw && (
+            <div className="flex items-center gap-1 text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 mt-1 animate-pulse">
+              <span>⚛</span>
+              <span>
+                {activePhysicsLaw === 'inertia' && 'ĐL I: QUÁN TÍNH BẢO TOÀN'}
+                {activePhysicsLaw === 'acceleration' && 'ĐL II: GIA TỐC DỐC (F=ma)'}
+                {activePhysicsLaw === 'reaction' && 'ĐL III: PHẢN LỰC ĐÀN HỒI'}
+                {activePhysicsLaw === 'centripetal' && 'LỰC HƯỚNG TÂM (CUA GẤP)'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right: Quick action buttons */}

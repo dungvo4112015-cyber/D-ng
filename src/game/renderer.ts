@@ -5,10 +5,15 @@
 
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { BoxCollider, CameraMode, CharacterId, LevelDefinition, PlayerPhysicsState, Vector3D } from './types';
 import { PHYSICS_CONSTANTS } from './rules';
 import { CharacterRig, animateCharacterRig, buildCharacterRig } from './character';
 import { buildRealisticTrap, updateRealisticTrap, TrapVisualInstance } from './trapVisuals';
+import { ProceduralTextureEngine } from './textures';
 
 // Pre-allocated scratch vectors for zero-GC render loop
 const _v1 = new THREE.Vector3();
@@ -48,6 +53,14 @@ export class ParkourRenderer {
   // Title flyover animation
   public isTitleScreen: boolean = true;
   private titleFlyTime = 0;
+
+  // Visual Enhancement: Post-processing HDR Bloom, Player Aura, and Stardust
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  public playerAuraLight!: THREE.PointLight;
+  private stardustParticles!: THREE.Points;
+  private animatedSpeedTextures: THREE.CanvasTexture[] = [];
+  private animatedBounceBeams: THREE.Mesh[] = [];
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -97,17 +110,46 @@ export class ParkourRenderer {
     this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
     pmremGenerator.dispose();
 
+    // High-performance HDR Bloom post-processing pipeline
+    if (!this.isSoftwareGl) {
+      try {
+        const renderPass = new RenderPass(this.scene, this.camera);
+        this.bloomPass = new UnrealBloomPass(
+          new THREE.Vector2(container.clientWidth, container.clientHeight),
+          0.68,
+          0.4,
+          0.72
+        );
+        const outputPass = new OutputPass();
+
+        this.composer = new EffectComposer(this.renderer);
+        this.composer.addPass(renderPass);
+        this.composer.addPass(this.bloomPass);
+        this.composer.addPass(outputPass);
+      } catch (e) {
+        console.warn('Bloom postprocessing not available:', e);
+        this.composer = null;
+      }
+    }
+
     // Setup Lighting
     this.setupLighting();
 
     // Build distant atmospheric monolith columns & soft cloud mist layers
     this.buildDistantMonoliths();
     this.buildCloudMistLayers();
+    this.buildStardustField();
 
     // Build procedural humanoid & cartoon character rig (Default to Sparky / Cyber Astronaut Runner)
     this.characterId = 'sparky';
     this.characterRig = buildCharacterRig(this.characterId, this.isSoftwareGl);
     this.playerGroup = this.characterRig.rootGroup;
+
+    // Real-time Dynamic Player Aura light
+    this.playerAuraLight = new THREE.PointLight('#00f0ff', 1.8, 12, 1.2);
+    this.playerAuraLight.position.set(0, 1.2, 0);
+    this.playerGroup.add(this.playerAuraLight);
+
     this.scene.add(this.playerGroup);
 
     // Build speed line streaks
@@ -197,8 +239,8 @@ export class ParkourRenderer {
     this.dirLight.position.set(25, 45, 20);
     if (!this.isSoftwareGl) {
       this.dirLight.castShadow = true;
-      this.dirLight.shadow.mapSize.width = 1024;
-      this.dirLight.shadow.mapSize.height = 1024;
+      this.dirLight.shadow.mapSize.width = 2048;
+      this.dirLight.shadow.mapSize.height = 2048;
       this.dirLight.shadow.camera.near = 5;
       this.dirLight.shadow.camera.far = 120;
       const d = 40;
@@ -218,6 +260,47 @@ export class ParkourRenderer {
   }
 
   /**
+   * Floating cyber stardust particles in the void around the runner course
+   */
+  private buildStardustField() {
+    const count = 350;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const colorCyan = new THREE.Color('#38bdf8');
+    const colorMagenta = new THREE.Color('#f472b6');
+    const colorViolet = new THREE.Color('#a78bfa');
+
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      positions[idx] = (Math.random() - 0.5) * 70;
+      positions[idx + 1] = (Math.random() - 0.5) * 40 + 6;
+      positions[idx + 2] = -Math.random() * 250 + 20;
+
+      const pick = Math.random();
+      const col = pick < 0.4 ? colorCyan : pick < 0.75 ? colorMagenta : colorViolet;
+      colors[idx] = col.r;
+      colors[idx + 1] = col.g;
+      colors[idx + 2] = col.b;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const mat = new THREE.PointsMaterial({
+      size: 0.35,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.75,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    this.stardustParticles = new THREE.Points(geo, mat);
+    this.scene.add(this.stardustParticles);
+  }
+
+  /**
    * Switch the 3D player avatar to a selected Humanoid or Cartoon character
    */
   public setCharacter(characterId: CharacterId) {
@@ -227,6 +310,9 @@ export class ParkourRenderer {
     }
     this.characterRig = buildCharacterRig(characterId, this.isSoftwareGl);
     this.playerGroup = this.characterRig.rootGroup;
+    if (this.playerAuraLight) {
+      this.playerGroup.add(this.playerAuraLight);
+    }
     this.scene.add(this.playerGroup);
   }
 
@@ -351,35 +437,47 @@ export class ParkourRenderer {
     let mat: THREE.Material;
 
     if (col.type === 'bounce') {
-      // Futuristic Sky-Blue Pad with Glowing Emissive Core
+      // Futuristic Sky-Blue Pad with Glowing Specular Surface
       mat = new THREE.MeshStandardMaterial({
         color: '#f0f9ff',
-        roughness: 0.25,
-        metalness: 0.2,
+        roughness: 0.18,
+        metalness: 0.28,
         emissive: new THREE.Color('#0284c7'),
-        emissiveIntensity: 0.25,
-      });
-    } else if (col.type === 'wall') {
-      mat = new THREE.MeshStandardMaterial({
-        color: col.color || '#c026d3',
-        roughness: 0.25,
-        metalness: 0.15,
-        emissive: new THREE.Color(col.color || '#c026d3'),
         emissiveIntensity: 0.35,
       });
-    } else if (col.type === 'speed') {
+    } else if (col.type === 'wall') {
+      // Hexagonal honeycomb wall-run panel
+      const wallTex = ProceduralTextureEngine.getWallHexTexture().clone();
+      wallTex.needsUpdate = true;
+      wallTex.repeat.set(Math.max(1, Math.round(col.depth / 4)), Math.max(1, Math.round(col.height / 4)));
       mat = new THREE.MeshStandardMaterial({
-        color: col.color || '#00f0ff',
-        roughness: 0.2,
-        metalness: 0.2,
-        emissive: new THREE.Color(col.color || '#00f0ff'),
-        emissiveIntensity: 0.45,
+        color: col.color || '#c026d3',
+        map: wallTex,
+        roughness: 0.22,
+        metalness: 0.45,
+        emissive: new THREE.Color(col.color || '#c026d3'),
+        emissiveMap: wallTex,
+        emissiveIntensity: 0.55,
+      });
+    } else if (col.type === 'speed') {
+      // Directional forward-flowing chevron speed strip
+      const speedTex = ProceduralTextureEngine.getSpeedChevronTexture().clone();
+      speedTex.needsUpdate = true;
+      speedTex.repeat.set(1, Math.max(1, Math.round(col.depth / 5)));
+      this.animatedSpeedTextures.push(speedTex);
+      mat = new THREE.MeshStandardMaterial({
+        map: speedTex,
+        emissive: new THREE.Color('#00f0ff'),
+        emissiveMap: speedTex,
+        emissiveIntensity: 0.8,
+        roughness: 0.16,
+        metalness: 0.35,
       });
     } else if (col.type === 'obstacle') {
       mat = new THREE.MeshStandardMaterial({
         color: '#ef4444',
-        roughness: 0.4,
-        metalness: 0.1,
+        roughness: 0.35,
+        metalness: 0.2,
       });
     } else if (col.type === 'checkpoint') {
       // Glowing 3D Emerald Checkpoint Gate Arch
@@ -420,11 +518,24 @@ export class ParkourRenderer {
     } else if (col.type === 'finish') {
       mat = new THREE.MeshBasicMaterial({ color: '#00f0ff', wireframe: true });
     } else {
-      // Sleek Dark Graphite Platform Surface
+      // High-tactile sci-fi deck platform with micro carbon-fiber weave & groove normal heightmap
+      const deckTex = ProceduralTextureEngine.getDeckTexture(!this.isSoftwareGl ? 8 : 1).clone();
+      deckTex.needsUpdate = true;
+      const repX = Math.max(1, Math.round(col.width / 4));
+      const repZ = Math.max(1, Math.round(col.depth / 4));
+      deckTex.repeat.set(repX, repZ);
+
+      const deckBump = ProceduralTextureEngine.getDeckBumpMap(!this.isSoftwareGl ? 8 : 1).clone();
+      deckBump.needsUpdate = true;
+      deckBump.repeat.set(repX, repZ);
+
       mat = new THREE.MeshStandardMaterial({
         color: col.color || '#262938',
-        roughness: 0.45,
-        metalness: 0.12,
+        map: deckTex,
+        bumpMap: deckBump,
+        bumpScale: 0.065,
+        roughness: 0.32,
+        metalness: 0.25,
       });
     }
 
@@ -436,7 +547,7 @@ export class ParkourRenderer {
       mesh.castShadow = !this.isSoftwareGl;
 
       if (col.type === 'bounce') {
-        // Concentric electric cyan ripple rings on bounce pads (Exactly matching screenshot!)
+        // Concentric electric cyan ripple rings on bounce pads (Matching reference screenshot)
         const rippleGroup = new THREE.Group();
         rippleGroup.position.set(0, col.height / 2 + 0.015, 0);
         rippleGroup.rotation.x = -Math.PI / 2;
@@ -447,6 +558,21 @@ export class ParkourRenderer {
           rippleGroup.add(ring);
         }
         mesh.add(rippleGroup);
+
+        // Holographic upward energy column beam
+        const beamRadius = Math.min(col.width, col.depth) * 0.38;
+        const beamGeo = new THREE.CylinderGeometry(beamRadius * 0.85, beamRadius, 1.8, 16, 1, true);
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: '#00f0ff',
+          transparent: true,
+          opacity: 0.25,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.y = 0.9;
+        mesh.add(beam);
+        this.animatedBounceBeams.push(beam);
 
         // Vibrant cyan perimeter edge wire
         const edgeGeo = new THREE.EdgesGeometry(geo);
@@ -488,20 +614,65 @@ export class ParkourRenderer {
           const crossMesh = new THREE.LineSegments(crossGeo, crossMat);
           mesh.add(crossMesh);
 
-          // Glowing vertical corner bevel accents at the 4 corners of platform
-          const cornerGeo = new THREE.BoxGeometry(0.12, col.height + 0.04, 0.12);
-          const cornerMat = new THREE.MeshBasicMaterial({ color: '#e879f9' });
+          // Deep 3D Architectural Substructure:
+          // Heavy corner bracket clamps with active status LED indicators
           const cx = col.width / 2;
           const cz = col.depth / 2;
-          const c1 = new THREE.Mesh(cornerGeo, cornerMat);
-          c1.position.set(-cx, 0, -cz);
-          const c2 = new THREE.Mesh(cornerGeo, cornerMat);
-          c2.position.set(cx, 0, -cz);
-          const c3 = new THREE.Mesh(cornerGeo, cornerMat);
-          c3.position.set(-cx, 0, cz);
-          const c4 = new THREE.Mesh(cornerGeo, cornerMat);
-          c4.position.set(cx, 0, cz);
-          mesh.add(c1, c2, c3, c4);
+          const bracketGeo = new THREE.BoxGeometry(0.18, col.height + 0.08, 0.18);
+          const bracketMat = new THREE.MeshStandardMaterial({
+            color: '#312e81',
+            roughness: 0.35,
+            metalness: 0.65,
+          });
+          const ledGeo = new THREE.SphereGeometry(0.05, 8, 8);
+          const ledMat = new THREE.MeshBasicMaterial({ color: '#38bdf8' });
+
+          const cornerPoints = [
+            [-cx, -cz], [cx, -cz], [-cx, cz], [cx, cz]
+          ];
+          cornerPoints.forEach(([ox, oz]) => {
+            const bracket = new THREE.Mesh(bracketGeo, bracketMat);
+            bracket.position.set(ox, 0, oz);
+            const led = new THREE.Mesh(ledGeo, ledMat);
+            led.position.set(ox, col.height / 2 + 0.035, oz);
+            mesh.add(bracket, led);
+          });
+
+          // Under-deck structural frame and Anti-Gravity Stabilizer Pylon for major platforms
+          if (col.width >= 2 && col.depth >= 2) {
+            // Dark graphite sub-chassis bevel underneath
+            const subGeo = new THREE.BoxGeometry(col.width * 0.92, 0.28, col.depth * 0.92);
+            const subMat = new THREE.MeshStandardMaterial({
+              color: '#13141f',
+              roughness: 0.6,
+              metalness: 0.45,
+            });
+            const subMesh = new THREE.Mesh(subGeo, subMat);
+            subMesh.position.y = -col.height / 2 - 0.14;
+            mesh.add(subMesh);
+
+            // Inverted pyramidal anti-gravity stabilizer cone pointing downwards into void
+            const pylonRadius = Math.min(col.width, col.depth) * 0.22;
+            const pylonGeo = new THREE.ConeGeometry(pylonRadius, 0.85, 4);
+            pylonGeo.rotateY(Math.PI / 4);
+            const pylonMat = new THREE.MeshStandardMaterial({
+              color: '#1e1b4b',
+              roughness: 0.35,
+              metalness: 0.7,
+            });
+            const pylon = new THREE.Mesh(pylonGeo, pylonMat);
+            pylon.rotation.x = Math.PI; // point down
+            pylon.position.y = -col.height / 2 - 0.42;
+            mesh.add(pylon);
+
+            // Luminous cyan anti-gravity core ring
+            const ringGeo = new THREE.TorusGeometry(pylonRadius * 0.75, 0.05, 8, 20);
+            const ringMat = new THREE.MeshBasicMaterial({ color: '#00f0ff' });
+            const pylonRing = new THREE.Mesh(ringGeo, ringMat);
+            pylonRing.rotation.x = Math.PI / 2;
+            pylonRing.position.y = -col.height / 2 - 0.38;
+            mesh.add(pylonRing);
+          }
         }
       }
     }
@@ -577,6 +748,8 @@ export class ParkourRenderer {
     this.levelMeshes.clear();
     this.movingMeshes = [];
     this.trapInstances = [];
+    this.animatedSpeedTextures = [];
+    this.animatedBounceBeams = [];
 
     // Sky, fog and dynamic biome lighting based on level theme
     this.setSkyTheme(level.skyTheme);
@@ -588,7 +761,8 @@ export class ParkourRenderer {
 
   /**
    * Updates animated level elements like moving platforms, rotating hazard traps,
-   * high-speed serrated saw blades, hydraulic hammers, and electrical arcs
+   * high-speed serrated saw blades, hydraulic hammers, electrical arcs,
+   * speed chevron flow, and holographic bounce pad beams
    */
   public updateAnimatedPlatforms(time: number, dt: number = 0.016) {
     // 1. Update realistic mechanical traps (sparks, hydraulic pistons, saw spins, laser flicker)
@@ -596,7 +770,32 @@ export class ParkourRenderer {
       updateRealisticTrap(this.trapInstances[i], time, dt);
     }
 
-    // 2. Update regular moving platforms
+    // 2. Animate speed strip directional chevron textures rushing forward
+    for (let i = 0; i < this.animatedSpeedTextures.length; i++) {
+      this.animatedSpeedTextures[i].offset.y -= dt * 3.5;
+    }
+
+    // 3. Animate holographic bounce pad vertical energy beams
+    for (let i = 0; i < this.animatedBounceBeams.length; i++) {
+      const bMat = this.animatedBounceBeams[i].material as THREE.MeshBasicMaterial;
+      if (bMat) {
+        bMat.opacity = 0.2 + Math.sin(time * 5 + i) * 0.12;
+      }
+    }
+
+    // 4. Subtle ambient drift for cyber stardust particles
+    if (this.stardustParticles) {
+      const posAttr = this.stardustParticles.geometry.getAttribute('position') as THREE.BufferAttribute;
+      if (posAttr) {
+        const array = posAttr.array as Float32Array;
+        for (let i = 0; i < array.length; i += 3) {
+          array[i + 1] += Math.sin(time * 1.2 + i) * 0.005;
+        }
+        posAttr.needsUpdate = true;
+      }
+    }
+
+    // 5. Update regular moving platforms
     this.movingMeshes.forEach((item) => {
       const mov = item.collider.metadata?.moving;
       if (mov) {
@@ -738,7 +937,11 @@ export class ParkourRenderer {
   }
 
   public render() {
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer && !this.isSoftwareGl) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   private onResize = () => {
@@ -748,12 +951,22 @@ export class ParkourRenderer {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    if (this.composer) {
+      this.composer.setSize(w, h);
+      if (this.bloomPass) {
+        this.bloomPass.resolution.set(w, h);
+      }
+    }
   };
 
   public destroy() {
     this.isDestroyed = true;
     window.removeEventListener('resize', this.onResize);
     cancelAnimationFrame(this.frameId);
+    if (this.composer) {
+      this.composer.dispose();
+      this.composer = null;
+    }
     this.renderer.dispose();
   }
 }

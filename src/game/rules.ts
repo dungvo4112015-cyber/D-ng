@@ -299,3 +299,140 @@ export function calculateYawTowards(
   return Math.atan2(-dx, -dz);
 }
 
+// ============================================================================
+// NEWTONIAN LAWS OF MOTION & PHYSICAL DYNAMICS ENGINE
+// ============================================================================
+
+/**
+ * 1. Newton's 1st Law (Inertia & Aerodynamic Drag F_d = 0.5 * C_d * v^2)
+ * Smoothly dissipates excess hypersonic speeds through natural fluid air resistance
+ * rather than arbitrary hard clamping, conserving genuine momentum.
+ */
+export function calculateAerodynamicDrag(
+  velocity: Vector3D,
+  dragCoeff: number = 0.024,
+  dt: number = 0.016
+): Vector3D {
+  const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+  if (speed < 0.01) return velocity;
+
+  // Drag deceleration proportional to v^2
+  const decayFactor = 1 / (1 + dragCoeff * speed * dt);
+  return {
+    x: velocity.x * decayFactor,
+    y: velocity.y,
+    z: velocity.z * decayFactor,
+  };
+}
+
+/**
+ * 2. Newton's 2nd Law (F = m * a: Tangential Gravity Component along Inclines)
+ * Resolves gravitational acceleration along slopes: downhill accelerates, uphill resists.
+ */
+export function calculateSlopeAcceleration(
+  forwardDir: { x: number; z: number },
+  slopeAngleRad: number,
+  gravity: number = -24.0
+): { ax: number; az: number } {
+  // Tangential acceleration = -g * sin(slopeAngle)
+  const tangentialAcc = -gravity * Math.sin(slopeAngleRad);
+  return {
+    ax: forwardDir.x * tangentialAcc,
+    az: forwardDir.z * tangentialAcc,
+  };
+}
+
+/**
+ * 3. Hooke's Law & Conservation of Mechanical Energy on Bounce Pads (E_k + E_p = const)
+ * Rebound velocity incorporates incoming gravitational fall speed through elastic restitution.
+ */
+export function calculateBounceElasticRecoil(
+  incomingVelY: number,
+  baseBouncePower: number = 20.0,
+  restitution: number = 1.25
+): number {
+  const fallSpeed = Math.max(0, -incomingVelY);
+  // Rebound = sqrt(base^2 + (e * fallSpeed)^2)
+  const rebound = Math.sqrt(baseBouncePower * baseBouncePower + Math.pow(restitution * fallSpeed, 2));
+  return Math.min(38.0, rebound);
+}
+
+/**
+ * 4. Momentum Transfer & Compression Spring Absorption on Landing (Hooke's Law F = -k * x)
+ * When landing from high drops, vertical kinetic energy is absorbed by knee compression
+ * and partially converted into forward momentum if the athlete slides or rolls forward.
+ */
+export function calculateLandingMomentumTransfer(
+  fallVelocityY: number,
+  isForwardIntended: boolean,
+  isSliding: boolean
+): { forwardBoost: number; compressionSquat: number } {
+  const impactSpeed = Math.max(0, -fallVelocityY);
+  const compressionSquat = Math.min(0.35, impactSpeed * 0.022);
+
+  if (!isForwardIntended && !isSliding) {
+    return { forwardBoost: 0, compressionSquat };
+  }
+
+  // Sliding parkour roll converts higher percentage of kinetic energy forward
+  const conversionRate = isSliding ? 0.32 : 0.16;
+  const forwardBoost = Math.min(8.5, impactSpeed * conversionRate);
+
+  return { forwardBoost, compressionSquat };
+}
+
+/**
+ * 5. Centripetal Force & Banking Angle (F_c = m * v^2 / r => tan(theta) = v * omega / g)
+ * Calculates the athlete's natural lateral tilt when executing sharp high-speed turns.
+ */
+export function calculateCentripetalBanking(
+  speed: number,
+  yawDelta: number,
+  dt: number = 0.016,
+  gravity: number = 24.0
+): number {
+  const omega = yawDelta / Math.max(dt, 0.001); // angular velocity rad/s
+  const centripetalAcc = speed * omega;
+  const rawAngle = Math.atan(centripetalAcc / Math.max(gravity, 1.0));
+  // Clamp banking tilt to realistic human athletic lean (-24° to +24°)
+  return Math.max(-0.42, Math.min(0.42, rawAngle));
+}
+
+/**
+ * 6. Experienced G-Force Telemetry (G = ||a_felt|| / g0)
+ * Evaluates real-time gravitational load (0.0G in freefall, 1.0G at rest, >2.5G on bounce).
+ */
+export function calculateGForce(acceleration: Vector3D, gravity: number = -24.0): number {
+  const feltAccY = acceleration.y - gravity;
+  const totalAcc = Math.sqrt(
+    acceleration.x * acceleration.x +
+    feltAccY * feltAccY +
+    acceleration.z * acceleration.z
+  );
+  return Math.round((totalAcc / Math.abs(gravity)) * 10) / 10;
+}
+
+/**
+ * 7. Kinetic Energy (E_k = 0.5 * m * v^2)
+ * Computes kinetic energy in Kilojoules (kJ) based on athlete body mass.
+ */
+export function calculateKineticEnergy(massKg: number, speedMps: number): number {
+  const joules = 0.5 * massKg * (speedMps * speedMps);
+  return Math.round((joules / 1000) * 10) / 10;
+}
+
+/**
+ * 8. Newton's 3rd Law (Action = -Reaction)
+ * Evaluates repulsive reaction impulse vector from normal contact plane.
+ */
+export function calculateImpulseReaction(
+  wallNormal: { x: number; z: number },
+  kickForce: number
+): Vector3D {
+  return {
+    x: wallNormal.x * kickForce,
+    y: 0,
+    z: wallNormal.z * kickForce,
+  };
+}
+
